@@ -1,0 +1,5 @@
+# CAD files: no text diffs (STEP is text but its diffs are noise), and keep generated outputs out of language stats
+*.stl  binary
+*.stp  -diff linguist-generated
+*.step -diff linguist-generated
+*/out/** linguist-generated

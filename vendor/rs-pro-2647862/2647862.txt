@@ -1,0 +1,16 @@
+﻿"Symbol";"Value";"Unit";
+"SUPPLIER_NAME";"RS Components";"";
+"TraceParts.PartVersion";"1.0.0";"";
+"SUPPLIER";"RS PRO";"";
+"TraceParts.PartStatus";"Published";"";
+"TraceParts.PartNumber";"90-14062024-048991";"";
+"TraceParts.PartLanguage";"en";"";
+"DESIGN";"Strut Profile 30x30, 8mm groove, 4 groov";"";
+"TraceParts.InstanceId";"90-14062024-0489912N3XX9WWY2MK673V115V3T3RA";"";
+"TraceParts.PartTitle";"Strut Profile 30x30, 8mm groove, 4 groov";"";
+"url";"https://uk.rs-online.com/web/p/tubing-and-profile-struts/2647862//?cm_mmc=aff-_-uk-_-traceparts-_-2647862";"";
+"REFERENCE";"2647862";"";
+"TRACEPARTS";"TRACEPARTS";"";
+"TraceParts.PartStatusId";"";"";
+"rs_stock_number";"2647862";"";
+"TraceParts.ClassPath";"RS_COMPONENTS:90-14062024-048991";"";

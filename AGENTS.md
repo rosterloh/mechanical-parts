@@ -1,0 +1,39 @@
+# Agent notes
+
+How parts are built is in README.md. These are the traps that cost time before.
+
+## Tools
+- `solidcraft-cli` is pinned in `mise.toml`; after bumping it, rebuild every part and run its `check.py`, since kernel
+  changes can move geometry. `check.py` honours `SOLIDCRAFT_CLI`. Part builds go through the generator and
+  `solidcraft-cli run` so they are reproducible; the `solidcraft` MCP server (`solidcraft-cli mcp`), when configured,
+  is for exploring and inspecting, not the source of truth.
+- If `solidcraft-cli` produces no output at all, the OS may be blocking an unsigned binary; test it with
+  `solidcraft-cli commands` before debugging anything else.
+- `solidcraft-cli commands` dumps every command with its params as JSON (large; filter it).
+- `file.insert_mesh` names the occurrence `<name>:1`; `occurrence.move` takes a row-major 3x4 `matrix`.
+- `inspect.interference` skips mesh bodies and `mesh.convert` only handles constant-section meshes, so clearance to the
+  vendor unit models is checked in Python against the exported STL (see `poe-rs485-3030-mount/check.py`).
+
+## Working on a part
+- Every part has a `README.md` in the same shape as `poe-rs485-3030-mount/README.md`: purpose, the render
+  (`out/<part>.png`, re-rendered by every build), bill of materials, printing, assembly, design notes (the reasons
+  the code can't show), status/known issues, files. Changing a part means updating its Design notes and Status;
+  the root README only links to part READMEs.
+- A part is a folder with `check.py` and a generator `<part_name>.py` matching the folder `<part-name>`; `tools/parts.py`
+  finds parts by that convention, and outputs are named via the generator's `NAME`.
+- Before calling work done: `mise run check` and `mise run lint` both pass. A new feature gets a check, and the
+  check is seen failing on a broken copy before it is trusted. A cut or fillet that reports success but leaves the
+  volume unchanged has missed its edge.
+- `vendor/<supplier>-<part>/` holds supplier CAD shared by parts (STEP plus the supplier's metadata txt); context only,
+  never exported. The RS 264-7862 STEP is a 100 mm piece along +Y; generators stretch it with `solid.press_pull`.
+- `units/` holds trimmed vendor meshes; the originals are no longer available, so don't overwrite them.
+- Confirm port and connector positions with the user; the vendor meshes don't always model them (the PoE-P4 RJ45 isn't).
+  Read hole and opening geometry from the mesh by vertical ray casting: planar slices have misread through-holes as
+  blind and openings as material.
+
+## poe-rs485-3030-mount
+- Frame: plate top z=0, extrusion along X under y=12. PoE-P4 x -0.7..63.3, y 0..24.
+- PoE-P4 ports: RJ45 and USB-C on the +X face (nothing of the bracket at or beyond x 63.3), Grove on -Y, side button on +Y.
+- RS485-ISO lies flat beyond the PoE's -X end, Grove end facing it; its LEGO holes are through-holes
+  (bore Ø4.85, Ø6.2 counterbores top and bottom).
+- Design reasons and known issues are in its README.

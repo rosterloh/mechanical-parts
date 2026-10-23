@@ -1,0 +1,33 @@
+# Pinned so every checkout builds the same geometry (see README.md).
+[tools]
+python = "3.15"
+ruff = "0.17.1"
+
+[tools."github:tangency-labs/solidcraft"]
+version = "0.20.0"
+
+# Linux and Windows releases bundle the CLI with the app; macOS has a CLI-only zip.
+[tools."github:tangency-labs/solidcraft".platforms]
+linux-x64 = { asset_pattern = "solidcraft-*-linux-x86_64.tar.gz" }
+linux-arm64 = { asset_pattern = "solidcraft-*-linux-aarch64.tar.gz" }
+macos-arm64 = { asset_pattern = "solidcraft-cli-*-macos-universal.zip" }
+macos-x64 = { asset_pattern = "solidcraft-cli-*-macos-universal.zip" }
+windows-x64 = { asset_pattern = "solidcraft-*-windows-x64-portable.zip" }
+windows-arm64 = { asset_pattern = "solidcraft-*-windows-arm64-portable.zip" }
+
+# Part tasks take part folder names; none means every part.
+[tasks.build]
+description = "Generate and build parts"
+run = "python tools/parts.py build"
+
+[tasks.check]
+description = "Build parts, then run each part's check.py; run after any change"
+run = "python tools/parts.py check"
+
+[tasks.fmt]
+description = "Format Python"
+run = "ruff format ."
+
+[tasks.lint]
+description = "Lint Python and check formatting"
+run = ["ruff check .", "ruff format --check ."]
