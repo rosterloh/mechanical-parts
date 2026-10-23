@@ -1,6 +1,7 @@
 # PoE-P4 + RS485-ISO 30x30 extrusion mount
 
-Holds an M5Stack **Unit PoE-P4** and **Unit RS485-ISO** in line on **RS PRO 264-7862** 30x30 slot-8 aluminium
+Holds an M5Stack [**Unit PoE-P4**](https://docs.m5stack.com/en/unit/Unit_PoE-P4) and
+[**Unit RS485-ISO**](https://docs.m5stack.com/en/unit/Unit_RS485-ISO) in line on **RS PRO 264-7862** 30x30 slot-8 aluminium
 extrusion, with their Grove ports joined by a cable.
 
 ![ISO view](out/poe-rs485-3030-mount.png)
@@ -56,5 +57,5 @@ material enters either unit, and that both units are held; it can't verify feel.
 |------|------|
 | `poe_rs485_3030_mount.py` | Generator: every dimension is a named constant at the top |
 | `check.py` | Volume, clearance and retention checks; must pass (`mise run check poe-rs485-3030-mount`) |
-| `units/` | Trimmed M5Stack unit meshes (assembled shells only) and the script that trimmed them |
+| `units/` | M5Stack unit meshes from [m5stack/M5_Hardware](https://github.com/m5stack/M5_Hardware) (MIT, see `units/LICENSE-M5Stack`), trimmed to the assembled shells by `trim.py` |
 | `out/` | STL and STEP to print, and this README's render |
