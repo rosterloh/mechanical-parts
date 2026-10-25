@@ -6,6 +6,7 @@ its README covers what it holds, what to buy, how to print and assemble it, and 
 ## Parts
 
 - [PoE-P4 + RS485-ISO 30x30 extrusion mount](poe-rs485-3030-mount/README.md)
+- [JH-D400X-R4 joystick + ESP32-P4 PoE box](joystick-p4-box/README.md)
 
 ## Building
 

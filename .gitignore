@@ -13,3 +13,5 @@ __pycache__/
 
 # agent scratch (plan-execution ledger)
 .ledger/
+.superpowers/
+docs/superpowers/
