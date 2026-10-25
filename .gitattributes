@@ -3,3 +3,5 @@
 *.stp  -diff linguist-generated
 *.step -diff linguist-generated
 */out/** linguist-generated
+# supplier CAD too big for plain git
+vendor/waveshare-esp32-p4-wifi6-poe-eth/*.stp filter=lfs diff=lfs merge=lfs -text

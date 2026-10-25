@@ -24,4 +24,5 @@ Each part's outputs land in `<part>/out/`: STL and STEP to print, and the render
 `SOLIDCRAFT_CLI` overrides which solidcraft-cli is used.
 
 `vendor/` holds supplier CAD shared between parts (e.g. the RS PRO 264-7862 profile STEP, from RS via TraceParts);
-it appears in renders for context and is never exported.
+it appears in renders for context and is never exported. The Waveshare board STEP (27 MB) is in Git LFS: run
+`git lfs install` before cloning, or `git lfs pull` after.

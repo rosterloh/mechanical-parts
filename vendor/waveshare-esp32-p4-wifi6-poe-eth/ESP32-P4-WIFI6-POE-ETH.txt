@@ -1,0 +1,10 @@
+"Symbol";"Value";"Unit";
+"SUPPLIER";"Waveshare";"";
+"DESIGN";"ESP32-P4-WIFI6-POE-ETH";"";
+"REVISION";"V2.0 (STEP product ESP32-P4-WIFI6-POE-ETH_V2_0_ASM, Creo, 2025-12-13)";"";
+"url";"https://docs.waveshare.com/ESP32-P4-WIFI6-POE-ETH";"";
+"step_url";"https://files.waveshare.com/wiki/ESP32-P4-WIFI6-POE-ETH/ESP32-P4-WIFI6-POE-ETH-3D.zip";"";
+"schematic_url";"https://files.waveshare.com/wiki/ESP32-P4-WIFI6-POE-ETH/ESP32-P4-WIFI6-POE-ETH-Schematic.pdf";"";
+"frame";"PCB top z=0, bottom z=-1.6; outline x 0..55, y 0..68; 40-pin header at y~64, port edge at y=0";"mm";
+"holes";"4 x Ø3 through at x 3.5/51.5, y 24.3/57.3 (10.7 and 43.7 from the header edge)";"mm";
+"not_modelled";"ESP32-P4-Core and ESP32-C6-MINI-1U shields (outlines only; P4 chip under the shield is modelled)";"";
