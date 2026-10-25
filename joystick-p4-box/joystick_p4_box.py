@@ -24,25 +24,31 @@ JOY_ABOVE = ["Fillet1 (2)", "Cut-Extrude1", "Revolve1"]  # grommet, ring, handle
 DOVE = 1.5  # plate edges reach this far into each long wall; 45° underside bevel, so the groove prints panel-down
 CORNER_R, CORNER_R_END = 3.0, 1.0  # +X corners run up the 3 mm walls, so they get less
 TOP_CHAMFER = 0.5  # panel top is the shell's bed face: elephant's foot
-# ESP32-P4-WIFI6-POE-ETH, 55 x 68, header edge at -X, port edge at +X (Waveshare drawing; heights user-measured)
+# ESP32-P4-WIFI6-POE-ETH, 55 x 68, header edge at -X, port edge at +X; Waveshare's V2.0 STEP and drawing
+BOARD_STEP = Path(__file__).resolve().parent.parent / "vendor/waveshare-esp32-p4-wifi6-poe-eth"
+BOARD_STEP /= "ESP32-P4-WIFI6-POE-ETH_3d-20251213.stp"
 END_T = 1.5  # base end wall: thin, so the USB stack reaches its outer face and plug overmolds clear it
-BOARD_X0, BOARD_Y0, POST_H, PCB = X_END - END_T - C - 68, 3.0, 6.0, 1.6
-POSTS = [(x, y) for x in (BOARD_X0 + 10.25, BOARD_X0 + 43.25) for y in (BOARD_Y0 + 3.5, BOARD_Y0 + 51.5)]
+USB_PROUD = 1.7  # USB stack face past the board edge; flush with the wall's outer face, board edge 0.2 inside
+BOARD_X0, BOARD_Y0, POST_H, PCB = X_END - 68 - USB_PROUD, 3.0, 6.0, 1.6
+POSTS = [(x, y) for x in (BOARD_X0 + 10.7, BOARD_X0 + 43.7) for y in (BOARD_Y0 + 3.5, BOARD_Y0 + 51.5)]
 POST_D, PILOT_D, PILOT_DEPTH = 6.0, 2.2, 5.0  # M2.5 self-tapping
 WALL_X0 = X_END - END_T  # base end wall inner face
 WIN_M, TF_NAIL = 0.5, 2.0  # window margin; the microSD window drops lower for a fingernail
+# 45° flare on the microSD window's outer edges: the slot sits 1.2 into the board, so a fingernail needs the room;
+# not on its -Y edge, which has only 0.7 of wall to the RJ45 window
+TF_FLARE = 1.2
 # detent between the end wall's side edges and the shell walls at the open mouth, where the walls can flex
 BUMP_D, DIMPLE_D, DETENT_X, DETENT_Z = 1.6, 1.6, X_END - END_T / 2, 20.0
 PCB_TOP = PLATE + POST_H + PCB
 
 
 def ports():
-    """Port blocks (x0, x1, y0, y1, z0, z1); USB includes its 16 mm flange and its 1.8 mm overhang."""
+    """Port blocks (x0, x1, y0, y1, z0, z1) above the PCB, from the board STEP's bodies; TF height user-measured."""
     y = BOARD_Y0
     return {
-        "USB": (BOARD_X0 + 53, BOARD_X0 + 69.8, y + 5.1, y + 19.2, PCB_TOP, PCB_TOP + 16),
-        "RJ45": (BOARD_X0 + 47.5, BOARD_X0 + 68, y + 21.6, y + 38.2, PCB_TOP, PCB_TOP + 13.35),
-        "TF": (BOARD_X0 + 52.5, BOARD_X0 + 68, y + 39.2, y + 51.4, PCB_TOP, PCB_TOP + 2),
+        "USB": (BOARD_X0 + 52.24, BOARD_X0 + 68 + USB_PROUD, y + 4.26, y + 19.93, PCB_TOP, PCB_TOP + 16),
+        "RJ45": (BOARD_X0 + 48.59, BOARD_X0 + 69.99, y + 21.86, y + 37.9, PCB_TOP, PCB_TOP + 13.3),
+        "TF": (BOARD_X0 + 55.52, BOARD_X0 + 66.77, y + 39.63, y + 50.98, PCB_TOP, PCB_TOP + 2),
     }
 
 
@@ -56,11 +62,8 @@ def windows():
 
 
 def proxies():
-    """Context boxes (x0, x1, y0, y1, z0, z1): PCB, header with Dupont plugs."""
-    return {
-        "Board": [(BOARD_X0, BOARD_X0 + 68, BOARD_Y0, BOARD_Y0 + 55, PLATE + POST_H, PCB_TOP)],
-        "Header": [(BOARD_X0, BOARD_X0 + 5.1, BOARD_Y0 + 1, BOARD_Y0 + 52, PCB_TOP, PCB_TOP + 21.5)],
-    }
+    """Context boxes (x0, x1, y0, y1, z0, z1): Dupont plugs on the header (the board itself is BOARD_STEP)."""
+    return {"Header": [(BOARD_X0 + 1.46, BOARD_X0 + 6.54, BOARD_Y0 + 2.1, BOARD_Y0 + 52.9, PCB_TOP, PCB_TOP + 21.5)]}
 
 
 def build(d):
@@ -173,6 +176,19 @@ def build(d):
     for n, w in windows().items():
         box(f"win{n}", *w, operation="cut", targets=["Base"])
     mark("windows")
+    _, _, y0, y1, z0, z1 = windows()["TF"]
+    ym, zm = (y0 + y1) / 2, (z0 + z1) / 2
+    cmds.append(
+        {
+            "command": "solid.chamfer",
+            "params": {
+                "body": "Base",
+                "distance": TF_FLARE,
+                "edges": [[X_END, ym, z0], [X_END, ym, z1], [X_END, y1, zm]],
+            },
+        }
+    )
+    mark("tf_flare")
     for x, y in POSTS:
         cmds.append(
             {
@@ -230,12 +246,12 @@ def build(d):
     m = [0, 0, -1, JOY[0], -1, 0, 0, JOY[1], 0, 1, 0, z]
     cmds.append({"command": "occurrence.move", "params": {"occurrence": "D400B:1", "space": "world", "matrix": m}})
     cmds.append({"command": "solid.move", "params": {"bodies": JOY_ABOVE, "translate": [0, PANEL, 0]}})  # local Y-up
-    for n, p in ports().items():
-        box(n, *p)
+    # the STEP has PCB top at z 0, header at +Y, ports at y 0
+    m = [0, -1, 0, BOARD_X0 + 68, 1, 0, 0, BOARD_Y0, 0, 0, 1, PCB_TOP]
+    cmds.append({"command": "file.insert_step", "params": {"path": str(BOARD_STEP), "name": "Board", "matrix": m}})
     cmds.append({"command": "appearance.assign", "params": {"bodies": ["Shell"], "color": "#e07020"}})
     cmds.append({"command": "appearance.assign", "params": {"bodies": ["Base"], "color": "#404040"}})
-    ctx = list(proxies()) + list(ports())
-    cmds.append({"command": "appearance.assign", "params": {"bodies": ctx, "color": "#b8bcc2"}})
+    cmds.append({"command": "appearance.assign", "params": {"bodies": list(proxies()), "color": "#b8bcc2"}})
     for part in ("Shell", "Base"):
         for fmt in ("stl", "step"):
             path = os.path.join(d, f"{NAME}-{part.lower()}.{fmt}")
