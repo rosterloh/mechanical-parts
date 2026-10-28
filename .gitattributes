@@ -5,3 +5,4 @@
 */out/** linguist-generated
 # supplier CAD too big for plain git
 vendor/waveshare-esp32-p4-wifi6-poe-eth/*.stp filter=lfs diff=lfs merge=lfs -text
+vendor/waveshare-esp32-p4-eth/*.stp filter=lfs diff=lfs merge=lfs -text

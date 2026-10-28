@@ -1,0 +1,12 @@
+"Symbol";"Value";"Unit";
+"SUPPLIER";"Waveshare";"";
+"DESIGN";"ESP32-P4-ETH (also sold as ESP32-P4-POE-ETH with PoE Module (B))";"";
+"REVISION";"STEP ESP32-P4-ETH_3d-20251219.stp (2025-12-19)";"";
+"url";"https://docs.waveshare.com/ESP32-P4-ETH";"";
+"step_url";"https://files.waveshare.com/wiki/ESP32-P4-ETH/ESP32-P4-ETH.zip";"";
+"outline";"PCB 78 x 21 x 1.6; RJ45 at one end (0.8 past it), USB-C at the other (1.4 past it); pins 8.3 below the PCB";"mm";
+"not_modelled";"PoE Module (B) (no model published; see protective-stop-remote/README.md)";"";
+"frame";"STEP: PCB top z=0 (components up, pins down), outline x 0..21, y 0..78; RJ45 end at y=0, USB-C end at y=78";"mm";
+"holes";"4 x Ø1.67 at x 1.38/19.62, y 22.26/76.42 (M1.6); Ø3.3 at x 4.79/16.21, y 10.13 are the RJ45 pegs";"mm";
+"poe_header";"1x6 male at x 2.88..18.12, y 21.24..23.78, pins up to z 8.3 (PoE Module (B) plugs on)";"mm";
+"note";"only one 1x20 header row is modelled (x 0.34..2.88); the other is at x 18.12..20.66";"";

@@ -1,0 +1,9 @@
+"Symbol";"Value";"Unit";
+"SUPPLIER";"Polymath Robotics";"";
+"DESIGN";"protective-stop remote enclosure (hardware/)";"";
+"REVISION";"commit 029eff833de0fa49b87963e571a8e73baeea06e1";"";
+"url";"https://github.com/polymathrobotics/protective-stop/tree/029eff833de0fa49b87963e571a8e73baeea06e1/hardware";"";
+"licence";"base.stl, lid.stl, lid-minus-led.stl, led.stl, esp32-S3.step, LED.step: CERN-OHL-P-2.0 (Polymath); FF0126BBCAEA01.stp: NKK Switches model, via Polymath's repo";"";
+"frame";"z up; base z -2..24.2, lid z 22.2..28.1; body centre and button axis (46, 9); pod at -X, end wall outer face x -18";"mm";
+"files";"lid.stl = lid-minus-led.stl + led.stl (the white diffuser insert); esp32-S3.step is their board fit model (PCB + box envelopes)";"";
+"not_modelled";"the logo embossed on the pod's side faces";"";

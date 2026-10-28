@@ -8,6 +8,7 @@ its README covers what it holds, what to buy, how to print and assemble it, and 
 - [PoE-P4 + RS485-ISO 30x30 extrusion mount](poe-rs485-3030-mount/README.md)
 - [JH-D400X-R4 joystick + ESP32-P4 PoE box](joystick-p4-box/README.md)
 - [reBot B601-RS power supply covers for a Mean Well HRPG-600-48](rebot-psu-covers/README.md)
+- [Protective-stop E-stop remote, ESP32-S3 and ESP32-P4 variants](protective-stop-remote/README.md)
 
 ## Building
 
