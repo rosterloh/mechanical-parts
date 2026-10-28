@@ -8,6 +8,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pathlib import Path
@@ -446,6 +447,13 @@ results.append(
 results.append(
     matches("s3 lid", stl(os.path.join(TMP, f"{remote.NAME}-s3-lid.stl")), stl(os.path.join(REF, "lid-minus-led.stl")))
 )
+# the two-colour lid: lid and diffuser as separate, aligned objects in one 3MF, so the slicer can give each a filament
+for key in remote.VARIANTS:
+    with zipfile.ZipFile(os.path.join(TMP, f"{remote.NAME}-{key}-lid.3mf")) as z:
+        model = z.read("3D/3dmodel.model").decode()
+    objects = model.count("<object ")
+    results.append(close(objects, 2, 0, f"{key} two-colour lid 3MF objects (lid, diffuser)"))
+
 # informational: the snap bumps are blocks, Polymath's are curved (≈0.6 % of points miss); not chased further
 INFO = True
 matches("s3 diffuser", stl(os.path.join(TMP, f"{remote.NAME}-s3-diffuser.stl")), stl(os.path.join(REF, "led.stl")))

@@ -339,6 +339,9 @@ def build(d):
             for fmt in ("stl", "step"):
                 path = os.path.join(d, f"{NAME}-{key}-{part}.{fmt}")
                 cmds.append({"command": "file.export", "params": {"path": path, "bodies": [P + part.capitalize()]}})
+        # Polymath prints lid and diffuser as one two-colour part: both, aligned, as separate objects in one 3MF
+        path = os.path.join(d, f"{NAME}-{key}-lid.3mf")
+        cmds.append({"command": "file.export", "params": {"path": path, "bodies": [P + "Lid", P + "Diffuser"]}})
 
     # --- p4 context, never exported: board, stand-ins, button and ring
     v = VARIANTS["p4"]

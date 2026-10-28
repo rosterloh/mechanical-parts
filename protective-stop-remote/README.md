@@ -15,8 +15,9 @@ Polymath's design is CERN-OHL-P-2.0; these variants are derived from it under th
 
 ## Bill of materials
 
-Each variant prints `out/protective-stop-remote-<variant>-{base,lid,diffuser}.stl` (STEP alongside); the diffuser in
-white or translucent filament.
+Each variant prints `out/protective-stop-remote-<variant>-{base,lid,diffuser}.stl` (STEP alongside). For Polymath's
+two-colour lid, open `out/protective-stop-remote-<variant>-lid.3mf` instead of the lid and diffuser STLs: it holds both,
+aligned, as separate objects, so the slicer can give the diffuser white and the lid its colour and print them as one.
 
 | Qty | s3 | p4 |
 |-----|----|----|
@@ -33,7 +34,8 @@ Screw lengths for the p4 are from the stack (1.6 PCB + 13 transformer gap + 1.66
 
 ## Printing
 
-No supports. Base floor-down, lid and diffuser face-down. Polymath printed the lid in yellow PLA with the diffuser in
+No supports. Base floor-down, lid and diffuser face-down (the 3MF is already face-up as modelled: flip it in the
+slicer). Polymath printed the lid in yellow PLA with the diffuser in
 white; any PLA/PETG works, with heavy walls (they used 6) since the lid takes every press of the button.
 
 ## Assembly
