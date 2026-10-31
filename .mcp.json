@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "solidcraft": {
+      "command": "mise",
+      "args": ["exec", "--", "solidcraft-cli", "mcp", "--headless", "--allow-path", "."]
+    }
+  }
+}

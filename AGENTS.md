@@ -4,9 +4,7 @@ How parts are built is in README.md. These are the traps that cost time before.
 
 ## Tools
 - `solidcraft-cli` is pinned in `mise.toml`; after bumping it, rebuild every part and run its `check.py`, since kernel
-  changes can move geometry. `check.py` honours `SOLIDCRAFT_CLI`. Part builds go through the generator and
-  `solidcraft-cli run` so they are reproducible; the `solidcraft` MCP server (`solidcraft-cli mcp`), when configured,
-  is for exploring and inspecting, not the source of truth.
+  changes can move geometry. `check.py` honours `SOLIDCRAFT_CLI`.
 - If `solidcraft-cli` produces no output at all, the OS may be blocking an unsigned binary; test it with
   `solidcraft-cli commands` before debugging anything else.
 - `solidcraft-cli commands` dumps every command with its params as JSON (large; filter it).
@@ -16,6 +14,16 @@ How parts are built is in README.md. These are the traps that cost time before.
   local axes); the command docs don't say so, and nothing errors when a body goes the wrong way.
 - `inspect.interference` skips mesh bodies and `mesh.convert` only handles constant-section meshes, so clearance to the
   vendor unit models is checked in Python against the exported STL (see `poe-rs485-3030-mount/check.py`).
+
+## CLI or MCP
+- CLI (`mise run build|check`, `solidcraft-cli run`) for anything that produces or proves a part: generator changes,
+  exports, checks, comparing versions, and any work in parallel (subagents, worktrees). It rebuilds from an empty design
+  at the pinned version every run.
+- MCP (`solidcraft` in `.mcp.json`: the pinned CLI, headless, repo paths only) for finding out what to write: look
+  (`screenshot`), find an edge point for a fillet (`body_topology`), read a clearance (`measure`), try a feature and
+  undo it. `mise run build <part>`, then `open` `out/<part>.solidcraft` (`open` refuses the `.json` build script).
+- Nothing made over MCP is kept: `out/` is rebuilt by every build. Put what worked into the generator, then prove it
+  with `mise run check`. The MCP holds one design shared by everyone in the session, so one agent at a time.
 
 ## Working on a part
 - Every part has a `README.md` in the same shape as `poe-rs485-3030-mount/README.md`: purpose, the render
