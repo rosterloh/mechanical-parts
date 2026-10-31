@@ -364,7 +364,9 @@ def build(d):
             "params": {"path": str(VENDOR / "FF0126BBCAEA01.stp"), "name": "FF01", "matrix": m},
         }
     )
-    cmds.append({"command": "solid.move", "params": {"bodies": ["FF01N"], "translate": [0, -(lt - lb), 0]}})
+    cmds.append(
+        {"command": "solid.move", "params": {"bodies": ["FF01N"], "translate": [0, 0, -(lt - lb)]}}
+    )  # world axes
     # the ring board rests on the diffuser's snap bumps, LEDs up
     m = [1, 0, 0, CX, 0, 1, 0, CY + RING_Y, 0, 0, 1, lb + v["ring_bumps"][2] - RING_Z]
     cmds.append(

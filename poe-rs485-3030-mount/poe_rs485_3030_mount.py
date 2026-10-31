@@ -232,7 +232,12 @@ def build(d):
     cmds.append(
         {
             "command": "occurrence.move",
-            "params": {"occurrence": "PoE-P4:1", "space": "world", "translate": list(place_poe((0, 0, 0)))},
+            "params": {
+                "occurrence": "PoE-P4:1",
+                "space": "world",
+                "translate": list(place_poe((0, 0, 0))),
+                "move_grounded": True,  # the first part inserted is grounded
+            },
         }
     )
     cmds.append({"command": "file.insert_mesh", "params": {"path": f"{units}/rs485.stl", "name": "RS485-ISO"}})

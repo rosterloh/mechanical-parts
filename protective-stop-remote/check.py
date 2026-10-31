@@ -392,8 +392,8 @@ results.append(true(not found, "p4: an RJ45 plug reaches the jack through the wi
 
 # unplugging pulls the jack outward: its face bears on the end wall around the window
 pull = [
-    {"command": "solid.move", "params": {"bodies": ["RJ45_HR911105A"], "translate": [0, -0.3, 0]}}
-]  # local y = world x
+    {"command": "solid.move", "params": {"bodies": ["RJ45_HR911105A"], "translate": [-0.3, 0, 0]}}
+]  # world axes: outward, towards the end wall
 found = interferences(pull, ["P4Base", "RJ45_HR911105A"], lambda a, b: True)
 results.append(true(bool(found), "p4: the RJ45 bears on the end wall when a plug is pulled", f"{pairs(found)}"))
 

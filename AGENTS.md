@@ -11,6 +11,9 @@ How parts are built is in README.md. These are the traps that cost time before.
   `solidcraft-cli commands` before debugging anything else.
 - `solidcraft-cli commands` dumps every command with its params as JSON (large; filter it).
 - `file.insert_mesh` names the occurrence `<name>:1`; `occurrence.move` takes a row-major 3x4 `matrix`.
+- The first part inserted into a design is grounded: `occurrence.move` refuses it without `move_grounded: true`.
+- `solid.move` `translate` is in world axes, also for bodies of a rotated occurrence (0.20 used the occurrence's
+  local axes); the command docs don't say so, and nothing errors when a body goes the wrong way.
 - `inspect.interference` skips mesh bodies and `mesh.convert` only handles constant-section meshes, so clearance to the
   vendor unit models is checked in Python against the exported STL (see `poe-rs485-3030-mount/check.py`).
 

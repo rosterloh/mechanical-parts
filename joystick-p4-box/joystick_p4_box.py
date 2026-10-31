@@ -244,8 +244,13 @@ def build(d):
     cmds.append({"command": "file.insert_step", "params": {"path": path, "name": "D400B"}})
     z = PLATE + H_IN - JOY_STEP_TOP
     m = [0, 0, -1, JOY[0], -1, 0, 0, JOY[1], 0, 1, 0, z]
-    cmds.append({"command": "occurrence.move", "params": {"occurrence": "D400B:1", "space": "world", "matrix": m}})
-    cmds.append({"command": "solid.move", "params": {"bodies": JOY_ABOVE, "translate": [0, PANEL, 0]}})  # local Y-up
+    cmds.append(
+        {
+            "command": "occurrence.move",
+            "params": {"occurrence": "D400B:1", "space": "world", "matrix": m, "move_grounded": True},
+        }
+    )
+    cmds.append({"command": "solid.move", "params": {"bodies": JOY_ABOVE, "translate": [0, 0, PANEL]}})  # world axes
     # the STEP has PCB top at z 0, header at +Y, ports at y 0
     m = [0, -1, 0, BOARD_X0 + 68, 1, 0, 0, BOARD_Y0, 0, 0, 1, PCB_TOP]
     cmds.append({"command": "file.insert_step", "params": {"path": str(BOARD_STEP), "name": "Board", "matrix": m}})
