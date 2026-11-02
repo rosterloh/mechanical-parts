@@ -7,6 +7,9 @@ Two panel switches over the board: a latching rocker to enable sending, and a mo
 the stick's axes (e.g. lift and pitch for an arm). The stick's own centre button is left for grasp. Loosely after
 the LowRiderJS box (open shell, slide-in base), without its LED.
 
+Firmware: [zephyr-applications/joystick_controller](https://github.com/rosterloh/zephyr-applications/tree/main/applications/joystick_controller) (Pico-ROS teleop for a MoveIt Servo arm or a mobile
+base); its README has the header wiring.
+
 ![ISO view](out/joystick-p4-box.png)
 
 ## Bill of materials
@@ -36,7 +39,8 @@ fits its grooves with 0.3 mm clearance, so check the first print slides freely.
 2. Board onto the base's four posts: lower it ~2.5 mm short of the end wall (the RJ45 overhangs the board edge by
    2 mm), then slide it toward the wall until the USB stack sits in its window (it reaches the wall's outer face);
    four screws.
-3. Plug the joystick leads onto the board's header. Run them and their slack along the +Y side of the joystick body
+3. Wire the stick and switches to the header as in the [firmware README](https://github.com/rosterloh/zephyr-applications/tree/main/applications/joystick_controller#waveshare-esp32-p4-wifi6-poe-eth--hzqs-r400b-m4-ethernetpoe).
+   Plug the joystick leads onto the board's header. Run them and their slack along the +Y side of the joystick body
    (10 mm of room), not into the 3 mm gap between body and header.
 4. Snap the rocker in from the top, long side across the box. Button in from the top, threaded ring on from
    inside. Solder wires to the rocker: push-on receptacles on its 4.8 mm tabs don't fit above the board.
@@ -73,8 +77,9 @@ fits its grooves with 0.3 mm clearance, so check the first print slides freely.
   joystick. The rocker runs across the box so the 15 mm button fits beside it (35 of the 40.8 mm free in X).
 - The rocker's snap clips take 2.00-3.00 mm panels (cutout 19.8 x 12.9 for that band), so a pocket thins the
   panel to 2.5 mm, mid-range. The mod button is raised (8.2 mm) so it can be found by feel without looking.
-- Rocker latching, not momentary: it enables the controller rather than being held. The firmware must then boot
-  blocked and wait for a centred stick after enabling or switching mode.
+- Rocker latching, not momentary: it enables the controller rather than being held. So the firmware sends nothing
+  after boot or a link drop until the rocker has been seen off, and nothing after enabling or a mod change until
+  the stick has been centred.
 
 ## Status
 
