@@ -6,6 +6,7 @@
 # Frame (in use, z up): plate bottom z=0, plate top z=3, panel underside z=35, top z=38. Interior x 0..123.8,
 # y 0..61; the shell is open at +X, where the base's end wall carries the port windows. Joystick at -X, board at +X.
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -47,6 +48,10 @@ PCB_TOP = PLATE + POST_H + PCB
 # They sit on a plate screwed over a panel opening once the base is in: the 2x20 header (pins to z 18.9, plugs
 # higher) passes under them as it slides; panel underside z 35, switches ~22 deep. Plate thickness, overlap onto the panel, corner radius:
 SW_T, SW_LAP, SW_R = 3.0, 6.0, 3.0
+# Debossed markings. Robot axes per REP 103 for a user at the -Y long side: X forward = box +Y, Y left = box -X, Z twist
+# counter-clockwise from above; right of the switch plate. Switch labels on the plate's strip nearest the user.
+MARK_D, MARK_H = 0.6, 4.5  # depth, capital height (built-in Liberation Sans: ~0.6 mm strokes at 4.5)
+AXES_O, AXES_L, AXES_W = (113.0, 46.0), 10.0, 1.2  # origin, arrow length, shaft width
 # Enable: Arcolectric H8600VBAAS rocker, latching; catalogue cutout for a 2.00-3.00 panel, long side along Y so the
 # button fits beside it. A pocket puts the panel mid-range for the snap clips; no chamfer under the cutout (clips
 # want a sharp edge).
@@ -113,6 +118,29 @@ def sw_screws():
     x0, x1, y0, y1 = sw_opening()
     h = SW_LAP / 2
     return [(x, y) for x in (x0 - h, x1 + h) for y in (y0 - h, y1 + h)]
+
+
+def axes_profiles():
+    """Closed outlines of the axes marking: the X and Y arrows as one L, and Z's curved arrow (arc as 12 chords)."""
+    (ox, oy), L, h = AXES_O, AXES_L, AXES_W / 2
+    hl, hw = 2.5, 1.6  # head length, half width
+    b = L - hl
+    xy = [(h, -h), (h, b), (hw, b), (0, L), (-hw, b), (-h, b), (-h, h), (-b, h), (-b, hw), (-L, 0), (-b, -hw), (-b, -h)]
+    r, a0, a1, n = 5.0, -95.0, -20.0, 12
+
+    def pt(rr, a):
+        return rr * math.cos(math.radians(a)), rr * math.sin(math.radians(a))
+
+    outer = [pt(r + h, a0 + (a1 - a0) * i / n) for i in range(n + 1)]
+    inner = [pt(r - h, a1 - (a1 - a0) * i / n) for i in range(n + 1)]
+    z = outer + [pt(r + hw, a1), pt(r, a1 + math.degrees(hl / r)), pt(r - hw, a1)] + inner
+    return [[(ox + x, oy + y) for x, y in poly] for poly in (xy, z)]
+
+
+def axes_letters():
+    """(letter, baseline centre) beside each arrow."""
+    (ox, oy), L = AXES_O, AXES_L
+    return [("X", (ox, oy + L + 1.5)), ("Y", (ox - L - 2.5, oy - MARK_H / 2)), ("Z", (ox + 7.5, oy - 10.0))]
 
 
 def build(d):
@@ -202,6 +230,31 @@ def build(d):
         )
     mark("sw_opening")
 
+    cmds.append({"command": "sketch.create", "params": {"plane": "XY", "offset": top, "name": "Axes"}})
+    for poly in axes_profiles():
+        cmds.append({"command": "sketch.line", "params": {"points": [list(q) for q in poly], "closed": True}})
+    cmds.append({"command": "sketch.finish", "params": {}})
+    cmds.append(
+        {
+            "command": "solid.emboss",
+            "params": {"sketch": "Axes", "depth": MARK_D, "mode": "deboss", "targets": ["Shell"]},
+        }
+    )
+    mark("axes")
+    cmds.append({"command": "sketch.create", "params": {"plane": "XY", "offset": top, "name": "AxesText"}})
+    for t, at in axes_letters():
+        cmds.append(
+            {"command": "sketch.text", "params": {"text": t, "at": list(at), "height": MARK_H, "align": "center"}}
+        )
+    cmds.append({"command": "sketch.finish", "params": {}})
+    cmds.append(
+        {
+            "command": "solid.emboss",
+            "params": {"sketch": "AxesText", "depth": MARK_D, "mode": "deboss", "targets": ["Shell"]},
+        }
+    )
+    mark("axes_text")
+
     # --- switch plate: on the panel, over the opening
     pt = top + SW_T
     box("Plate", ox0 - SW_LAP, ox1 + SW_LAP, oy0 - SW_LAP, oy1 + SW_LAP, top, pt)
@@ -252,6 +305,19 @@ def build(d):
             }
         )
     mark("plate_screws")
+    cmds.append({"command": "sketch.create", "params": {"plane": "XY", "offset": pt, "name": "Labels"}})
+    for t, at in (("MOD", (BUTTON[0], oy0 - SW_LAP + 1.2)), ("EN", (ROCKER[0], oy0 - SW_LAP + 1.2))):
+        cmds.append(
+            {"command": "sketch.text", "params": {"text": t, "at": list(at), "height": MARK_H, "align": "center"}}
+        )
+    cmds.append({"command": "sketch.finish", "params": {}})
+    cmds.append(
+        {
+            "command": "solid.emboss",
+            "params": {"sketch": "Labels", "depth": MARK_D, "mode": "deboss", "targets": ["Plate"]},
+        }
+    )
+    mark("labels")
 
     # --- base: dovetailed plate + end wall + board posts; runs to X_END so it fills the groove ends
     def cyl(name, d, x, y, z0, h):

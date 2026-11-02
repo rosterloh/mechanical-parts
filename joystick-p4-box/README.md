@@ -91,6 +91,11 @@ fits its grooves with 0.15 mm clearance (0.3 on the first print let the base fal
 - The rocker's snap clips take 2.00-3.00 mm panels (cutout 19.8 x 12.9 for that band), so a pocket thins the
   plate to 2.5 mm, mid-range. The cutout is 0.2 under that, 19.6 x 12.7: the catalogue size rattled when printed.
   The mod button is raised so it can be found by feel without looking.
+- Markings are debossed 0.6 mm, 4.5 mm capitals: `MOD` and `EN` on the plate's strip nearest the user, and robot
+  axes right of the plate (REP 103, for a user at the -Y long side: X forward = away from the user, Y left, Z twist
+  counter-clockwise from above). They are the reference for the firmware's axis signs: push the stick toward X and
+  `linear.x` must go positive, else set `invert-output` on that axis. Both print on the bed face, so the recesses
+  are the first layers; the built-in font has no bold, so smaller text would print thinner than a 0.4 nozzle.
 - Rocker latching, not momentary: it enables the controller rather than being held. So the firmware sends nothing
   after boot or a link drop until the rocker has been seen off, and nothing after enabling or a mod change until
   the stick has been centred.

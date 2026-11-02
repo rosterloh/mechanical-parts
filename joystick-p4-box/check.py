@@ -91,6 +91,21 @@ r, R = box.JOY_SCREW_D / 2, box.JOY_CS_D / 2
 h = R - r  # 90° countersink
 cs = math.pi * r**2 * box.SW_T + math.pi * h / 3 * (R**2 + R * r + r**2) - math.pi * r**2 * h
 results.append(close(dv("Plate", "switch_holes", "plate_screws"), -4 * cs, 0.5, "plate screw countersinks"))
+
+
+def area(poly):
+    return abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1]))) / 2
+
+
+# exact for the arrows, so one that runs off the flat panel top shows; letters only by range
+arrows = box.MARK_D * sum(area(q) for q in box.axes_profiles())
+results.append(close(dv("Shell", "sw_opening", "axes"), -arrows, 0.3, "axes arrows debossed"))
+for body, a, b, lo, what in (
+    ("Shell", "axes", "axes_text", 3, "axis letters"),
+    ("Plate", "plate_screws", "labels", 8, "switch labels"),
+):
+    got = dv(body, a, b)
+    results.append(true(-6 * lo < got < -lo, f"{what} debossed", f"({got:.2f})"))
 tf = box.windows()["TF"]
 win_area = sum((y1 - y0) * (z1 - z0) for _, _, y0, y1, z0, z1 in box.windows().values())
 results += [
