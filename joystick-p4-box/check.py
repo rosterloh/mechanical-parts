@@ -50,7 +50,7 @@ bb = v["joy_holes"]["Shell"]["bbox"]
 results = [
     close(
         dv("Shell", "shell_layout", "groove"),
-        -2 * box.X_END * (box.DOVE * (box.PLATE + box.C) - box.DOVE**2 / 2),
+        -2 * box.X_END * (box.DOVE * (box.PLATE + box.SLIDE_C) - box.DOVE**2 / 2),
         1.0,
         "dovetail grooves",
     ),
@@ -68,10 +68,29 @@ results = [
         f"({dv('Shell', 'panel_chamfer', 'joy_holes') + holes:.2f})",
     ),
 ]
+ox0, ox1, oy0, oy1 = box.sw_opening()
+pilot = math.pi * (box.PILOT_D / 2) ** 2 * box.PANEL
+results.append(
+    close(
+        dv("Shell", "joy_holes", "sw_opening"),
+        -(ox1 - ox0) * (oy1 - oy0) * box.PANEL - 4 * pilot,
+        0.5,
+        "switch opening and plate pilots",
+    )
+)
+results.append(
+    close(dv("Plate", "plate_layout", "plate_corners"), -k * 4 * box.SW_R**2 * box.SW_T, 0.3, "switch plate corners")
+)
 (cl, cw), m = box.ROCKER_CUT, box.ROCKER_POCKET_M
-r_pocket = (box.PANEL - box.ROCKER_PANEL) * (cl + 2 * m) * (cw + 2 * m) + box.ROCKER_PANEL * cl * cw
-b_hole = box.PANEL * math.pi * (box.BUTTON_HOLE / 2) ** 2
-results.append(close(dv("Shell", "joy_holes", "switch_holes"), -(r_pocket + b_hole), 0.5, "rocker and button holes"))
+r_pocket = (box.SW_T - box.ROCKER_PANEL) * (cl + 2 * m) * (cw + 2 * m) + box.ROCKER_PANEL * cl * cw
+b_hole = box.SW_T * math.pi * (box.BUTTON_HOLE / 2) ** 2
+results.append(
+    close(dv("Plate", "plate_corners", "switch_holes"), -(r_pocket + b_hole), 0.5, "rocker and button holes")
+)
+r, R = box.JOY_SCREW_D / 2, box.JOY_CS_D / 2
+h = R - r  # 90° countersink
+cs = math.pi * r**2 * box.SW_T + math.pi * h / 3 * (R**2 + R * r + r**2) - math.pi * r**2 * h
+results.append(close(dv("Plate", "switch_holes", "plate_screws"), -4 * cs, 0.5, "plate screw countersinks"))
 tf = box.windows()["TF"]
 win_area = sum((y1 - y0) * (z1 - z0) for _, _, y0, y1, z0, z1 in box.windows().values())
 results += [
@@ -161,13 +180,31 @@ switches = {"Rocker", "Button"}
 # and the header plugs sit on the board's pins
 found = interferences(
     [],
-    ["Shell", "Base", *box.proxies(), *joy, *reach],
-    lambda a, b: bool({a, b} & {"Shell", "Base"}) or len({a, b} & joy) == 1 or bool({a, b} & switches),
+    ["Shell", "Base", "Plate", *box.proxies(), *joy, *reach],
+    lambda a, b: bool({a, b} & {"Shell", "Base", "Plate"}) or len({a, b} & joy) == 1 or bool({a, b} & switches),
 )
 print(f"     ({len(reach)} board bodies can reach the box)")
 results.append(
-    true(not found, "no clash between shell, base, joystick, switches, board STEP and header plugs", f"{pairs(found)}")
+    true(
+        not found,
+        "no clash between shell, plate, base, joystick, switches, board STEP and header plugs",
+        f"{pairs(found)}",
+    )
 )
+
+# the base slides in from +X with the board on it, the switch plate still off: everything on the board, swept from
+# outside the open end to its place, must miss the shell and joystick
+bbs = {b["name"]: b["bbox"] for b in json.loads(Path(res).read_text())["bodies"]}
+movers = [(n, bbs[n]["min"], bbs[n]["max"]) for n in reach] + [
+    ("Header", [x0, y0, z0], [x1, y1, z1]) for x0, x1, y0, y1, z0, z1 in box.proxies()["Header"]
+]
+sweeps = [
+    swept(f"sweep{i}", (mn[0], 0, mn[1], mx[1], mn[2], mx[2]), box.X_END + 80) for i, (_, mn, mx) in enumerate(movers)
+]
+names = {sw["params"]["body_name"] for sw in sweeps}
+found = interferences(sweeps, ["Shell", *joy, *names], lambda a, b: len({a, b} & names) == 1)
+hit = [(movers[int(i[k][5:])][0], i[1 - k]) for i in [(f["a"], f["b"]) for f in found] for k in (0, 1) if i[k] in names]
+results.append(true(not found, "board slides in under the panel without the switch plate", f"{hit}"))
 
 # a square pin down each panel screw hole must drop into the D400B body's Ø1.6 pilot, not hit its top face
 # (square: a round pin nearly coaxial with the pilot makes the kernel's intersect fail; its 1.56 diagonal leaves 0.02)

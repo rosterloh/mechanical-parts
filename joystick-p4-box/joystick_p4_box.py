@@ -1,5 +1,5 @@
 # Box for a JH-D400X-R4 4-axis joystick and a Waveshare ESP32-P4-WIFI6-POE-ETH (PoE: one cable).
-# Shell prints panel-down, base plate-down, no supports. Design notes and status: README.md
+# Shell prints panel-down, base plate-down, switch plate top-down, no supports. Design notes and status: README.md
 # usage: python3 joystick_p4_box.py [outdir]
 #   then: solidcraft-cli run <outdir>/joystick-p4-box.json --save <outdir>/joystick-p4-box.solidcraft
 #
@@ -13,6 +13,7 @@ from pathlib import Path
 NAME = "joystick-p4-box"  # every output file is named after the part
 
 C, T, PANEL, PLATE = 0.3, 3.0, 3.0, 3.0  # fit clearance, wall, panel, plate thickness
+SLIDE_C = 0.15  # base plate in the grooves and end wall between the shell walls; 0.3 let the base fall out
 W_IN, H_IN, X_END = 61.0, 32.0, 123.8  # interior width, plate top to panel underside, open end (outer +X face)
 JOY = (30.5, 30.5)  # joystick axis; pots point -X and -Y, so the 50x50 envelope sits in the interior's -X/-Y corner
 JOY_HOLE = 40.0 + 2 * C  # the grommet's Ø40 inner ring can sit in it
@@ -34,6 +35,7 @@ POSTS = [(x, y) for x in (BOARD_X0 + 10.7, BOARD_X0 + 43.7) for y in (BOARD_Y0 +
 POST_D, PILOT_D, PILOT_DEPTH = 6.0, 2.2, 5.0  # M2.5 self-tapping
 WALL_X0 = X_END - END_T  # base end wall inner face
 WIN_M, TF_NAIL = 0.5, 2.0  # window margin; the microSD window drops lower for a fingernail
+SNUG_M = 0.2  # USB window, and the RJ45 edge facing it, so the wall between them is 2.0 rather than 0.9
 # 45° flare on the microSD window's outer edges: the slot sits 1.2 into the board, so a fingernail needs the room;
 # not on its -Y edge, which has only 0.7 of wall to the RJ45 window
 TF_FLARE = 1.2
@@ -42,24 +44,30 @@ BUMP_D, DIMPLE_D, DETENT_X, DETENT_Z = 1.6, 1.6, X_END - END_T / 2, 20.0
 PCB_TOP = PLATE + POST_H + PCB
 # Panel switches over the board, between the header plugs and the RJ45, at -Y of the PoE transformer (y 36.8+,
 # 12 mm tall). The two need 35 of the 40.8 mm in X between header plugs and the HP1 connectors by the RJ45.
+# They sit on a plate screwed over a panel opening once the base is in: the 2x20 header (pins to z 18.9, plugs
+# higher) passes under them as it slides; panel underside z 35, switches ~22 deep. Plate thickness, overlap onto the panel, corner radius:
+SW_T, SW_LAP, SW_R = 3.0, 6.0, 3.0
 # Enable: Arcolectric H8600VBAAS rocker, latching; catalogue cutout for a 2.00-3.00 panel, long side along Y so the
 # button fits beside it. A pocket puts the panel mid-range for the snap clips; no chamfer under the cutout (clips
 # want a sharp edge).
 ROCKER = (93.0, 25.0)
-ROCKER_CUT, ROCKER_PANEL, ROCKER_POCKET_M = (12.9, 19.8), 2.5, 3.0  # (x, y)
+# cutout 0.2 under the catalogue's 12.9 x 19.8: the printed one let the rocker rattle
+ROCKER_CUT, ROCKER_PANEL, ROCKER_POCKET_M = (12.7, 19.6), 2.5, 3.0  # (x, y)
 ROCKER_BODY = (15.0, 21.0, 19.9 + 2.0)  # bezel-sized footprint; depth incl. tabs, +2 for wires soldered on
-# Mod: RAFI 1.10.001.001/0301, Ø15.2 hole, threaded ring, 21.5 mounting depth (taken from the panel underside, the
-# worst case); the datasheet gives neither ring size nor panel range: 20 square assumed, 3 mm panel assumed fine
+# Mod: RAFI 1.10.001.001/0301, Ø15.2 hole, threaded ring, 21.5 mounting depth (datasheet, from the panel underside;
+# 18.5 measured); the datasheet gives neither ring size nor panel range: 20 square assumed, 3 mm panel fine (printed)
 BUTTON = (72.0, 25.0)
 BUTTON_HOLE = 15.2 + C  # printed holes come out small; the ring clamps, so slack doesn't matter
 BUTTON_BODY = (20.0, 21.5)
 
 
 def ports():
-    """Port blocks (x0, x1, y0, y1, z0, z1) above the PCB, from the board STEP's bodies; TF height user-measured."""
+    """Port blocks (x0, x1, y0, y1, z0, z1) above the PCB, from the board STEP's bodies; TF height user-measured.
+    USB is the USB-A shell's front flare (0.85 past the shell each side, 1 above it): it leads the board through the
+    window as the base slides in; the body behind the wall is 15.7 wide, but never enters it."""
     y = BOARD_Y0
     return {
-        "USB": (BOARD_X0 + 52.24, BOARD_X0 + 68 + USB_PROUD, y + 4.26, y + 19.93, PCB_TOP, PCB_TOP + 16),
+        "USB": (BOARD_X0 + 52.24, BOARD_X0 + 68 + USB_PROUD, y + 4.69, y + 19.49, PCB_TOP, PCB_TOP + 16),
         "RJ45": (BOARD_X0 + 48.59, BOARD_X0 + 69.99, y + 21.86, y + 37.9, PCB_TOP, PCB_TOP + 13.3),
         "TF": (BOARD_X0 + 55.52, BOARD_X0 + 66.77, y + 39.63, y + 50.98, PCB_TOP, PCB_TOP + 2),
     }
@@ -70,7 +78,8 @@ def windows():
     out = {}
     for n, (_, _, y0, y1, z0, z1) in ports().items():
         nail = TF_NAIL if n == "TF" else 0
-        out[n] = (WALL_X0 - 1, X_END + 1, y0 - WIN_M, y1 + WIN_M, z0 - WIN_M - nail, z1 + WIN_M)
+        lo, hi, up = {"USB": (SNUG_M,) * 3, "RJ45": (SNUG_M, WIN_M, WIN_M)}.get(n, (WIN_M,) * 3)  # -Y, +Y, top
+        out[n] = (WALL_X0 - 1, X_END + 1, y0 - lo, y1 + hi, z0 - WIN_M - nail, z1 + up)
     return out
 
 
@@ -78,14 +87,32 @@ def proxies():
     """Context boxes (x0, x1, y0, y1, z0, z1): Dupont plugs on the header (the board itself is BOARD_STEP), and the
     switch bodies below the panel."""
     rl, rw, rd = ROCKER_BODY
-    r_top = PLATE + H_IN + PANEL - ROCKER_PANEL
+    b_top = PLATE + H_IN + PANEL  # switch plate underside
+    r_top = b_top + SW_T - ROCKER_PANEL
     b, bd = BUTTON_BODY
-    b_top = PLATE + H_IN
     return {
         "Header": [(BOARD_X0 + 1.46, BOARD_X0 + 6.54, BOARD_Y0 + 2.1, BOARD_Y0 + 52.9, PCB_TOP, PCB_TOP + 21.5)],
         "Rocker": [(ROCKER[0] - rl / 2, ROCKER[0] + rl / 2, ROCKER[1] - rw / 2, ROCKER[1] + rw / 2, r_top - rd, r_top)],
         "Button": [(BUTTON[0] - b / 2, BUTTON[0] + b / 2, BUTTON[1] - b / 2, BUTTON[1] + b / 2, b_top - bd, b_top)],
     }
+
+
+def sw_opening():
+    """Panel opening (x0, x1, y0, y1) the switches drop through on their plate; the plate overlaps it by SW_LAP."""
+    bs = [proxies()[n][0] for n in ("Rocker", "Button")]
+    return (
+        min(b[0] for b in bs) - WIN_M,
+        max(b[1] for b in bs) + WIN_M,
+        min(b[2] for b in bs) - WIN_M,
+        max(b[3] for b in bs) + WIN_M,
+    )
+
+
+def sw_screws():
+    """Plate screw positions: its corners, midway across the overlap."""
+    x0, x1, y0, y1 = sw_opening()
+    h = SW_LAP / 2
+    return [(x, y) for x in (x0 - h, x1 + h) for y in (y0 - h, y1 + h)]
 
 
 def build(d):
@@ -115,7 +142,7 @@ def build(d):
     box("Shell", -T, X_END, -T, W_IN + T, 0, top)
     box("cavity", 0, X_END + 1, 0, W_IN, 0, PLATE + H_IN, operation="cut", targets=["Shell"])
     mark("shell_layout")
-    box("groove", 0, X_END + 1, -DOVE, W_IN + DOVE, 0, PLATE + C)
+    box("groove", 0, X_END + 1, -DOVE, W_IN + DOVE, 0, PLATE + SLIDE_C)
     cmds.append(
         {
             "command": "solid.chamfer",
@@ -167,7 +194,21 @@ def build(d):
                 }
             )
     mark("joy_holes")
-    under = PLATE + H_IN
+    ox0, ox1, oy0, oy1 = sw_opening()
+    box("sw_open", ox0, ox1, oy0, oy1, PLATE + H_IN - 1, top + 1, operation="cut", targets=["Shell"])
+    for x, y in sw_screws():
+        cmds.append(
+            {"command": "solid.hole", "params": {"position": [x, y, top], "diameter": PILOT_D, "targets": ["Shell"]}}
+        )
+    mark("sw_opening")
+
+    # --- switch plate: on the panel, over the opening
+    pt = top + SW_T
+    box("Plate", ox0 - SW_LAP, ox1 + SW_LAP, oy0 - SW_LAP, oy1 + SW_LAP, top, pt)
+    mark("plate_layout")
+    edges = [[x, y, top + SW_T / 2] for x in (ox0 - SW_LAP, ox1 + SW_LAP) for y in (oy0 - SW_LAP, oy1 + SW_LAP)]
+    cmds.append({"command": "solid.fillet", "params": {"body": "Plate", "radius": SW_R, "edges": edges}})
+    mark("plate_corners")
     (cl, cw), m = ROCKER_CUT, ROCKER_POCKET_M
     rx, ry = ROCKER
     box(
@@ -176,10 +217,10 @@ def build(d):
         rx + cl / 2 + m,
         ry - cw / 2 - m,
         ry + cw / 2 + m,
-        under - 1,
-        top - ROCKER_PANEL,
+        top - 1,
+        pt - ROCKER_PANEL,
         operation="cut",
-        targets=["Shell"],
+        targets=["Plate"],
     )
     box(
         "rocker_cut",
@@ -187,15 +228,30 @@ def build(d):
         rx + cl / 2,
         ry - cw / 2,
         ry + cw / 2,
-        under - 1,
-        top + 1,
+        top - 1,
+        pt + 1,
         operation="cut",
-        targets=["Shell"],
+        targets=["Plate"],
     )
     cmds.append(
-        {"command": "solid.hole", "params": {"position": [*BUTTON, top], "diameter": BUTTON_HOLE, "targets": ["Shell"]}}
+        {"command": "solid.hole", "params": {"position": [*BUTTON, pt], "diameter": BUTTON_HOLE, "targets": ["Plate"]}}
     )
     mark("switch_holes")
+    for x, y in sw_screws():
+        cmds.append(
+            {
+                "command": "solid.hole",
+                "params": {
+                    "position": [x, y, pt],
+                    "diameter": JOY_SCREW_D,
+                    "type": "countersink",
+                    "cs_diameter": JOY_CS_D,
+                    "cs_angle": 90,
+                    "targets": ["Plate"],
+                },
+            }
+        )
+    mark("plate_screws")
 
     # --- base: dovetailed plate + end wall + board posts; runs to X_END so it fills the groove ends
     def cyl(name, d, x, y, z0, h):
@@ -206,8 +262,8 @@ def build(d):
             }
         )
 
-    box("Base", C, X_END, -DOVE + C, W_IN + DOVE - C, 0, PLATE)
-    box("endwall", WALL_X0, X_END, C, W_IN - C, 0, PLATE + H_IN - C)
+    box("Base", C, X_END, -DOVE + SLIDE_C, W_IN + DOVE - SLIDE_C, 0, PLATE)
+    box("endwall", WALL_X0, X_END, SLIDE_C, W_IN - SLIDE_C, 0, PLATE + H_IN - C)
     for i, (x, y) in enumerate(POSTS):
         cyl(f"post{i}", POST_D, x, y, PLATE, POST_H)
     tools = ["endwall"] + [f"post{i}" for i in range(len(POSTS))]
@@ -219,7 +275,7 @@ def build(d):
             "params": {
                 "body": "Base",
                 "distance": DOVE,
-                "edges": [[X_END / 2, -DOVE + C, 0], [X_END / 2, W_IN + DOVE - C, 0]],
+                "edges": [[X_END / 2, -DOVE + SLIDE_C, 0], [X_END / 2, W_IN + DOVE - SLIDE_C, 0]],
             },
         }
     )
@@ -253,7 +309,7 @@ def build(d):
             }
         )
     mark("pilots")
-    for yb, yd in ((0, C), (W_IN, W_IN - C)):
+    for yb, yd in ((0, SLIDE_C), (W_IN, W_IN - SLIDE_C)):
         cmds.append(
             {
                 "command": "solid.sphere",
@@ -305,10 +361,10 @@ def build(d):
     # the STEP has PCB top at z 0, header at +Y, ports at y 0
     m = [0, -1, 0, BOARD_X0 + 68, 1, 0, 0, BOARD_Y0, 0, 0, 1, PCB_TOP]
     cmds.append({"command": "file.insert_step", "params": {"path": str(BOARD_STEP), "name": "Board", "matrix": m}})
-    cmds.append({"command": "appearance.assign", "params": {"bodies": ["Shell"], "color": "#e07020"}})
+    cmds.append({"command": "appearance.assign", "params": {"bodies": ["Shell", "Plate"], "color": "#e07020"}})
     cmds.append({"command": "appearance.assign", "params": {"bodies": ["Base"], "color": "#404040"}})
     cmds.append({"command": "appearance.assign", "params": {"bodies": list(proxies()), "color": "#b8bcc2"}})
-    for part in ("Shell", "Base"):
+    for part in ("Shell", "Base", "Plate"):
         for fmt in ("stl", "step"):
             path = os.path.join(d, f"{NAME}-{part.lower()}.{fmt}")
             cmds.append({"command": "file.export", "params": {"path": path, "bodies": [part]}})
