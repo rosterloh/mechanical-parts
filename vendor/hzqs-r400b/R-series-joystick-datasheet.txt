@@ -1,0 +1,8 @@
+"Symbol";"Value";"Unit";
+"SUPPLIER";"HZQS (www.hzqs.com)";"";
+"DESIGN";"R series control lever, R400B (4D: X, Y, Z twist in the handle, button on top; seal form B)";"";
+"REVISION";"catalogue pages 063-064, user-supplied as info-prz r400b-m2.pdf";"";
+"potentiometers";"M1 5k 220°, M2 5k 50°, M3 10k 220°, M4 10k 50°; the stick in joystick-p4-box is labelled R400B-M4";"";
+"travel";"±25° (50°)";"deg";
+"install_hole";"Ø41, 4 holes on a 32.5 square (the box uses 33.0 from the GrabCAD D400B model; not yet measured)";"mm";
+"body";"40.4 square body, 49.6 over the pots, 25.5 below the panel";"mm";

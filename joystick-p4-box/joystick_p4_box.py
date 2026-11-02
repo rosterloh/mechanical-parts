@@ -40,6 +40,19 @@ TF_FLARE = 1.2
 # detent between the end wall's side edges and the shell walls at the open mouth, where the walls can flex
 BUMP_D, DIMPLE_D, DETENT_X, DETENT_Z = 1.6, 1.6, X_END - END_T / 2, 20.0
 PCB_TOP = PLATE + POST_H + PCB
+# Panel switches over the board, between the header plugs and the RJ45, at -Y of the PoE transformer (y 36.8+,
+# 12 mm tall). The two need 35 of the 40.8 mm in X between header plugs and the HP1 connectors by the RJ45.
+# Enable: Arcolectric H8600VBAAS rocker, latching; catalogue cutout for a 2.00-3.00 panel, long side along Y so the
+# button fits beside it. A pocket puts the panel mid-range for the snap clips; no chamfer under the cutout (clips
+# want a sharp edge).
+ROCKER = (93.0, 25.0)
+ROCKER_CUT, ROCKER_PANEL, ROCKER_POCKET_M = (12.9, 19.8), 2.5, 3.0  # (x, y)
+ROCKER_BODY = (15.0, 21.0, 19.9 + 2.0)  # bezel-sized footprint; depth incl. tabs, +2 for wires soldered on
+# Mod: RAFI 1.10.001.001/0301, Ø15.2 hole, threaded ring, 21.5 mounting depth (taken from the panel underside, the
+# worst case); the datasheet gives neither ring size nor panel range: 20 square assumed, 3 mm panel assumed fine
+BUTTON = (72.0, 25.0)
+BUTTON_HOLE = 15.2 + C  # printed holes come out small; the ring clamps, so slack doesn't matter
+BUTTON_BODY = (20.0, 21.5)
 
 
 def ports():
@@ -62,8 +75,17 @@ def windows():
 
 
 def proxies():
-    """Context boxes (x0, x1, y0, y1, z0, z1): Dupont plugs on the header (the board itself is BOARD_STEP)."""
-    return {"Header": [(BOARD_X0 + 1.46, BOARD_X0 + 6.54, BOARD_Y0 + 2.1, BOARD_Y0 + 52.9, PCB_TOP, PCB_TOP + 21.5)]}
+    """Context boxes (x0, x1, y0, y1, z0, z1): Dupont plugs on the header (the board itself is BOARD_STEP), and the
+    switch bodies below the panel."""
+    rl, rw, rd = ROCKER_BODY
+    r_top = PLATE + H_IN + PANEL - ROCKER_PANEL
+    b, bd = BUTTON_BODY
+    b_top = PLATE + H_IN
+    return {
+        "Header": [(BOARD_X0 + 1.46, BOARD_X0 + 6.54, BOARD_Y0 + 2.1, BOARD_Y0 + 52.9, PCB_TOP, PCB_TOP + 21.5)],
+        "Rocker": [(ROCKER[0] - rl / 2, ROCKER[0] + rl / 2, ROCKER[1] - rw / 2, ROCKER[1] + rw / 2, r_top - rd, r_top)],
+        "Button": [(BUTTON[0] - b / 2, BUTTON[0] + b / 2, BUTTON[1] - b / 2, BUTTON[1] + b / 2, b_top - bd, b_top)],
+    }
 
 
 def build(d):
@@ -145,6 +167,35 @@ def build(d):
                 }
             )
     mark("joy_holes")
+    under = PLATE + H_IN
+    (cl, cw), m = ROCKER_CUT, ROCKER_POCKET_M
+    rx, ry = ROCKER
+    box(
+        "rocker_pocket",
+        rx - cl / 2 - m,
+        rx + cl / 2 + m,
+        ry - cw / 2 - m,
+        ry + cw / 2 + m,
+        under - 1,
+        top - ROCKER_PANEL,
+        operation="cut",
+        targets=["Shell"],
+    )
+    box(
+        "rocker_cut",
+        rx - cl / 2,
+        rx + cl / 2,
+        ry - cw / 2,
+        ry + cw / 2,
+        under - 1,
+        top + 1,
+        operation="cut",
+        targets=["Shell"],
+    )
+    cmds.append(
+        {"command": "solid.hole", "params": {"position": [*BUTTON, top], "diameter": BUTTON_HOLE, "targets": ["Shell"]}}
+    )
+    mark("switch_holes")
 
     # --- base: dovetailed plate + end wall + board posts; runs to X_END so it fills the groove ends
     def cyl(name, d, x, y, z0, h):

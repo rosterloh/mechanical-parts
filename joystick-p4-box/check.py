@@ -68,6 +68,10 @@ results = [
         f"({dv('Shell', 'panel_chamfer', 'joy_holes') + holes:.2f})",
     ),
 ]
+(cl, cw), m = box.ROCKER_CUT, box.ROCKER_POCKET_M
+r_pocket = (box.PANEL - box.ROCKER_PANEL) * (cl + 2 * m) * (cw + 2 * m) + box.ROCKER_PANEL * cl * cw
+b_hole = box.PANEL * math.pi * (box.BUTTON_HOLE / 2) ** 2
+results.append(close(dv("Shell", "joy_holes", "switch_holes"), -(r_pocket + b_hole), 0.5, "rocker and button holes"))
 tf = box.windows()["TF"]
 win_area = sum((y1 - y0) * (z1 - z0) for _, _, y0, y1, z0, z1 in box.windows().values())
 results += [
@@ -152,15 +156,17 @@ def reaches(bb):
 
 reach = [b["name"] for b in json.loads(Path(res).read_text())["bodies"] if reaches(b["bbox"])]
 joy = set(box.JOY_BELOW + box.JOY_ABOVE)
-# anything against shell or base, the joystick against anything else; each model's own parts touch
+switches = {"Rocker", "Button"}
+# anything against shell or base, the joystick or a switch against anything else; each model's own parts touch,
+# and the header plugs sit on the board's pins
 found = interferences(
     [],
     ["Shell", "Base", *box.proxies(), *joy, *reach],
-    lambda a, b: bool({a, b} & {"Shell", "Base"}) or len({a, b} & joy) == 1,
+    lambda a, b: bool({a, b} & {"Shell", "Base"}) or len({a, b} & joy) == 1 or bool({a, b} & switches),
 )
 print(f"     ({len(reach)} board bodies can reach the box)")
 results.append(
-    true(not found, "no clash between shell, base, joystick, board STEP and header plugs", f"{pairs(found)}")
+    true(not found, "no clash between shell, base, joystick, switches, board STEP and header plugs", f"{pairs(found)}")
 )
 
 # a square pin down each panel screw hole must drop into the D400B body's Ø1.6 pilot, not hit its top face

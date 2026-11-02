@@ -3,7 +3,9 @@
 Holds a **JH-D400X-R4** 4-axis joystick in its top panel and a Waveshare
 [**ESP32-P4-WIFI6-POE-ETH**](https://docs.waveshare.com/ESP32-P4-WIFI6-POE-ETH) inside, so the joystick becomes a
 networked controller on one PoE cable. The RJ45, USB-C/USB-A stack and microSD come out through the base's end wall.
-Loosely after the LowRiderJS box (open shell, slide-in base), without its LED and switch holes.
+Two panel switches over the board: a latching rocker to enable sending, and a momentary mod button that shifts
+the stick's axes (e.g. lift and pitch for an arm). The stick's own centre button is left for grasp. Loosely after
+the LowRiderJS box (open shell, slide-in base), without its LED.
 
 ![ISO view](out/joystick-p4-box.png)
 
@@ -17,6 +19,8 @@ Loosely after the LowRiderJS box (open shell, slide-in base), without its LED an
 | 1 | Waveshare ESP32-P4-WIFI6-POE-ETH |
 | 4 | M2.5 x 16 self-tapping screw (joystick: through its ring, grommet and the panel; length estimated) |
 | 4 | M2.5 x 6 pan-head self-tapping screw (board) |
+| 1 | Arcolectric (Bulgin) H8600VBAAS rocker, SPST ON-OFF latching, snap-in (enable) |
+| 1 | RAFI 1.10.001.001/0301 pushbutton, Ø15.2, momentary 1 NO, screw terminals, threaded ring (mod) |
 
 ## Printing
 
@@ -34,7 +38,9 @@ fits its grooves with 0.3 mm clearance, so check the first print slides freely.
    four screws.
 3. Plug the joystick leads onto the board's header. Run them and their slack along the +Y side of the joystick body
    (10 mm of room), not into the 3 mm gap between body and header.
-4. Slide the base in from the open end, plate edges in the grooves, until the end wall's detents click.
+4. Snap the rocker in from the top, long side across the box. Button in from the top, threaded ring on from
+   inside. Solder wires to the rocker: push-on receptacles on its 4.8 mm tabs don't fit above the board.
+5. Slide the base in from the open end, plate edges in the grooves, until the end wall's detents click.
 
 ## Design notes
 
@@ -62,15 +68,25 @@ fits its grooves with 0.3 mm clearance, so check the first print slides freely.
   PCB over a post or near the plate (the lowest, the underside MX1.25 speaker header, is 3.3 below the PCB). All 800
   take minutes.
 
+- Switches sit over the board at y 25, between the header plugs and the RJ45 and -Y of the 12 mm PoE transformer
+  (y 36.8 up): there the board's parts are under 3 mm, so their bodies clear it; nothing fits beside the
+  joystick. The rocker runs across the box so the 15 mm button fits beside it (35 of the 40.8 mm free in X).
+- The rocker's snap clips take 2.00-3.00 mm panels (cutout 19.8 x 12.9 for that band), so a pocket thins the
+  panel to 2.5 mm, mid-range. The mod button is raised (8.2 mm) so it can be found by feel without looking.
+- Rocker latching, not momentary: it enables the controller rather than being held. The firmware must then boot
+  blocked and wait for a centred stick after enabling or switching mode.
+
 ## Status
 
 First version, **not yet test-printed**. `check.py` verifies every cut, fillet and chamfer by volume, that nothing
-clashes with the joystick model or the board STEP, that the panel holes line up with the joystick's pilots, that
+(switch bodies included) clashes with the joystick model or the board STEP, that the panel holes line up with the joystick's pilots, that
 plugs reach every port through its window, and that a 1 mm pull meets the detents. It can't verify feel. Known
 issues:
 
-- **`check.py` fails one check**: the microSD face is 2.93 mm behind the outer face, over the 2 mm allowed for a
-  fingernail; Waveshare's STEP sets the slot 1.2 mm into the board, where the earlier proxy had it flush.
+- Switch bodies are box proxies, not vendor models: rocker 15 x 21 x 21.9 (2 mm for soldered wires), button
+  20 square x 21.5 from the panel underside. RAFI's datasheet gives neither the threaded ring's size nor its
+  panel range; a 20 mm ring and a 3 mm panel are assumed.
+- The rocker's snap-in cutout is the catalogue's punched size; a printed hole may come out tight or loose.
 - Board geometry is Waveshare's V2.0 STEP and drawing (holes 10.7 from the header edge; the web drawing read 10.25),
   not measured on a board, and the board in hand may be a different revision. The STEP has no ESP32-P4-Core or
   C6 module shields (~3 mm, well under the 32 mm interior).
@@ -87,5 +103,6 @@ issues:
 | `joystick_p4_box.py` | Generator: every dimension is a named constant at the top |
 | `check.py` | Volume, clearance, alignment, port and retention checks; must pass (`mise run check joystick-p4-box`) |
 | `../vendor/waveshare-esp32-p4-wifi6-poe-eth/` | Waveshare's board STEP and drawing, context only |
+| `../vendor/hzqs-r400b/` | Maker's R-series catalogue pages (R400B: pots, travel, install holes), context only |
 | `units/d400b.step` | JH-D400 joystick model from [GrabCAD](https://grabcad.com/library/d400b-3-axis-joystick-with-pushbutton-1), context only |
 | `out/` | STLs and STEPs to print, and this README's render |
