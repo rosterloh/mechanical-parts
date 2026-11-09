@@ -261,6 +261,73 @@ for bx, by in cam.HOLES:
     post_ok &= dfr.inside((x + 2.5, y, zm)) and dfr.inside((x - 2.5, y, zm))
     post_ok &= not dfr.inside((x, y, cam.z_pcb_front() - 3)) and dfr.inside((x, y, cam.z_pcb_front() - 6.5))
 results.append(true(post_ok, "dfr1154 posts under the board holes, Ø2.5 × 6 pilots"))
+
+
+def open_column(solid, x, y, z0, z1, step=0.2):
+    """Every point from z0 to z1 at (x, y) is outside the solid."""
+    n = max(1, int((z1 - z0) / step))
+    return all(not solid.inside((x, y, z0 + (z1 - z0) * i / n)) for i in range(n + 1))
+
+
+zf, zi, zl, zp = cam.z_front(), cam.z_inner(), cam.z_lens(), cam.z_pcb_front()
+lx, ly = cam.board_to_world(*cam.CAM)
+d = zl - zf
+hx = cam.APERTURE_R + d * math.tan(math.radians(cam.FOV_X))
+hy = cam.APERTURE_R + d * math.tan(math.radians(cam.FOV_Y))
+z_out = zf + 0.05
+lens_ok = open_column(dfr, lx, ly, zf - 1, zl)
+lens_ok &= not dfr.inside((lx + hx - 0.3, ly, z_out)) and dfr.inside((lx + hx + 0.5, ly, z_out))
+lens_ok &= not dfr.inside((lx, ly + hy - 0.3, z_out)) and dfr.inside((lx, ly + hy + 0.5, z_out))
+results.append(true(lens_ok, "dfr1154 lens opening: open to the lens, 4:3 funnel to the field of view at the face"))
+
+
+def tube_ok(c, size, through=True):
+    """Window open through the front (if `through`) and a tube wall on all four sides from the front wall to just
+    above the board."""
+    x, y = cam.board_to_world(*c)
+    hw, hh = size[0] / 2 + 0.5, size[1] / 2 + 0.5
+    ok = open_column(dfr, x, y, zf - 1, zp - 0.4) if through else open_column(dfr, x, y, zi, zp - 0.4)
+    zm = (zi + zp - 0.3) / 2
+    for px, py in ((x + hw + 0.4, y), (x - hw - 0.4, y), (x, y + hh + 0.4), (x, y - hh - 0.4)):
+        ok &= dfr.inside((px, py, zm))
+    return ok
+
+
+results.append(true(all(tube_ok(c, cam.IR_SIZE) for c in cam.IR), "dfr1154 IR LED windows with light tubes"))
+results.append(true(tube_ok(cam.ALS, cam.ALS_SIZE), "dfr1154 light sensor window with tube"))
+mx, my = cam.board_to_world(*cam.MIC)
+mic_ok = tube_ok(cam.MIC, cam.MIC_SIZE, through=False) and open_column(dfr, mx, my, zf - 1, zi + 0.5)
+mic_ok &= dfr.inside((mx + 1.2, my, zf + 0.8))  # a small hole, not a window
+results.append(true(mic_ok, "dfr1154 mic hole with tube"))
+wall_ok = True
+for c in cam.IR:
+    x, y = cam.board_to_world(*c)
+    edge = abs(x - lx) - cam.IR_SIZE[0] / 2 - 0.5  # IR window's near side
+    xm = lx + math.copysign((hx + edge) / 2, x - lx)
+    wall_ok &= dfr.inside((xm, y, zf + 0.8))
+results.append(true(wall_ok, "dfr1154 wall between the lens opening and each IR window"))
+ux, _ = cam.board_to_world(cam.USB_X, cam.PCB)
+uz = cam.z_pcb_back() + cam.USB_Z
+results.append(true(not dfr.inside((ux, 33.0, uz)), "dfr1154 USB-C slot through the wall at the plug"))
+results.append(cut("DfrCup", "dfr:usb", "dfr:vents", "dfr1154 vents"))
+w, pitch = cam.VENT
+r_mid, z_mid = cam.HEX_F / 2 - cam.WALL / 2, (cam.z_pcb_back() + cam.RIM_Z) / 2
+vents_ok = True
+for phi in (0, 120, 240):
+    cp, sp = math.cos(math.radians(phi)), math.sin(math.radians(phi))
+    for k in (-1, 0, 1):
+        # across the slot along the wall: open inside its width, solid just past it
+        for off, want in (
+            (0, False),
+            (w / 2 - 0.3, False),
+            (-(w / 2 - 0.3), False),
+            (w / 2 + 0.4, True),
+            (-(w / 2 + 0.4), True),
+        ):
+            a = k * pitch + off
+            vents_ok &= dfr.inside((r_mid * cp - a * sp, r_mid * sp + a * cp, z_mid)) == want
+    vents_ok &= dfr.inside((r_mid * cp - 2 * pitch * sp, r_mid * sp + 2 * pitch * cp, z_mid))  # wall beyond them
+results.append(true(vents_ok, "dfr1154 vents: three through each of the 0°, 120°, 240° walls"))
 standins = sorted(cam.dfr_standins())
 found = interferences(["DfrCup", *standins], lambda a, b: "DfrCup" in (a, b))
 results.append(true(not found, "dfr1154 cup clear of board, parts and USB plug", f"{found}"))

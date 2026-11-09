@@ -129,6 +129,11 @@ POST_PILOT_D = 2.5  # M3 self-tapping through the board holes
 POST_PILOT_DEPTH = 6.0
 BOSS_H = 6.0  # gussets hang this far from the rim: pilot depth + 2
 CLEAR = 0.5
+TUBE_WALL = 0.8  # light tubes from the front wall to just above the board, so no IR reaches the lens inside
+TUBE_GAP = 0.3  # tube ends this far off the board
+WINDOW_CLEAR = 1.0  # window and tube bore over the part's size
+MIC_HOLE = 1.5
+VENT = (2.0, 4.0)  # slot width, spacing; three per free flat, from the board's back to 3 below the rim
 
 
 def board_to_world(bx, by):
@@ -457,6 +462,68 @@ def build(d):
     y_in = (HEX_F / 2 - WALL - 0.5 * (px1 + CLEAR)) / math.cos(math.radians(30)) - 1
     box("DfrUsb", px0 - CLEAR, px1 + CLEAR, y_in, RIM_Z + 20, pz0 - CLEAR, pz1 + CLEAR, operation="cut", targets=[dc])
     mark("dfr:usb")
+    w, pitch = VENT
+    z0, z1 = z_pcb_back() + CLEAR, RIM_Z - 3
+    for phi in (0, 120, 240):
+        for k in (-1, 0, 1):
+            # built on the 0° flat, then turned into place
+            r = HEX_F / 2 - WALL / 2
+            box("DfrVent", r - WALL, r + WALL, k * pitch - w / 2, k * pitch + w / 2, z0, z1)
+            if phi:
+                cmds.append(
+                    {
+                        "command": "solid.move",
+                        "params": {"bodies": ["DfrVent"], "axis": [0, 0, 1], "angle": f"{phi} deg"},
+                    }
+                )
+            combine(dc, ["DfrVent"], "cut")
+    mark("dfr:vents")
+    # lens: a 4:3 funnel from the aperture at the lens front, opening at the field-of-view half-angles; lofted between
+    # rectangles 0.5 past both faces of the front wall
+    lx, ly = board_to_world(*CAM)
+    for name, z in (("DfrLensIn", z_inner() + 0.5), ("DfrLensOut", z_front() - 0.5)):
+        dl = z_lens() - z
+        hx = APERTURE_R + dl * math.tan(math.radians(FOV_X))
+        hy = APERTURE_R + dl * math.tan(math.radians(FOV_Y))
+        pts = [(lx - hx, ly - hy), (lx + hx, ly - hy), (lx + hx, ly + hy), (lx - hx, ly + hy)]
+        cmds.append(
+            {
+                "command": "sketch.create",
+                "params": {"plane": {"origin": [0, 0, z], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}, "name": name},
+            }
+        )
+        cmds.append({"command": "sketch.line", "params": {"points": [list(q) for q in pts], "closed": True}})
+        cmds.append({"command": "sketch.finish", "params": {}})
+    cmds.append(
+        {
+            "command": "solid.loft",
+            "params": {
+                "sections": [{"sketch": "DfrLensIn"}, {"sketch": "DfrLensOut"}],
+                "operation": "cut",
+                "targets": [dc],
+            },
+        }
+    )
+    mark("dfr:lens")
+    tube_top = z_pcb_front() - TUBE_GAP
+    holes = [(c, IR_SIZE, None) for c in IR] + [(ALS, ALS_SIZE, None), (MIC, MIC_SIZE, MIC_HOLE)]
+    tubes = []
+    for i, (c, (w, h), _) in enumerate(holes):
+        x, y = board_to_world(*c)
+        hw, hh = w / 2 + WINDOW_CLEAR / 2 + TUBE_WALL, h / 2 + WINDOW_CLEAR / 2 + TUBE_WALL
+        box(f"DfrTube{i}", x - hw, x + hw, y - hh, y + hh, z_inner() - 0.5, tube_top)
+        tubes.append(f"DfrTube{i}")
+    combine(dc, tubes, "join")
+    mark("dfr:tubes")
+    for c, (w, h), hole in holes:
+        x, y = board_to_world(*c)
+        hw, hh = w / 2 + WINDOW_CLEAR / 2, h / 2 + WINDOW_CLEAR / 2
+        if hole:  # mic: a small hole through the front, the tube's bore stops at the wall
+            box("DfrBore", x - hw, x + hw, y - hh, y + hh, z_inner(), tube_top + 1, operation="cut", targets=[dc])
+            cyl("DfrMicHole", hole, (x, y, z_front() - 1), FRONT_T + 2, operation="cut", targets=[dc])
+        else:
+            box("DfrWindow", x - hw, x + hw, y - hh, y + hh, z_front() - 1, tube_top + 1, operation="cut", targets=[dc])
+    mark("dfr:windows")
     export(dc, "dfr1154-cup")
     for name, boxes in dfr_standins().items():
         for i, b in enumerate(boxes):
