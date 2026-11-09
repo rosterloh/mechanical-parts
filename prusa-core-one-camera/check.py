@@ -175,6 +175,47 @@ def cut(body, a, b, what):
     return true(dv(body, a, b) < -1, what, f"({dv(body, a, b):.1f} mm³)")
 
 
+def interferences(bodies, keep):
+    """Overlapping pairs among `bodies` that `keep` accepts (touching faces don't count). Exits if the kernel
+    couldn't check every accepted pair, so an incomplete query can't pass as a clean fit."""
+    script, res = os.path.join(TMP, "fit.json"), os.path.join(TMP, "fit.r.json")
+    probe = {"command": "inspect.interference", "params": {"bodies": bodies, "budget_s": 900}}
+    Path(script).write_text(json.dumps({"commands": cmds + [probe]}))
+    subprocess.run([SC, "run", script, "--results", "--json-out", res, "--quiet"], check=True, capture_output=True)
+    r = json.loads(Path(res).read_text())[-1]
+    if r.get("budget_exceeded") or r.get("truncated"):
+        sys.exit(f"interference query incomplete (budget_exceeded/truncated): {bodies}")
+    unchecked = [u for u in r["unchecked"] if keep(u["a"], u["b"] or "")]
+    if unchecked:
+        sys.exit(f"interference not checked: {unchecked}")
+    return [(i["a"], i["b"], round(i["volume_mm3"], 2)) for i in r["interferences"] if keep(i["a"], i["b"])]
+
+
+def joint_matches(a, b):
+    """The dfr1154 cup meets the plate as the esp32cam cup does: rim outline (band just inside it solid, just outside
+    empty) and the three pilots (empty bore, solid ring) agree in both."""
+    sa, sb = a, b
+    ok = True
+    z = cam.RIM_Z - 0.1
+    for k in range(72):
+        t = math.radians(5 * k + 2.5)
+        # outer outline: hex across flats HEX_F, rounded corners; walk in from 40 mm to the first solid point of b
+        r_out = next(r / 20 for r in range(800, 400, -1) if sb.inside((r / 20 * math.cos(t), r / 20 * math.sin(t), z)))
+        for dr, want in ((-0.3, True), (-1.8, True), (0.3, False)):
+            p = ((r_out + dr) * math.cos(t), (r_out + dr) * math.sin(t), z)
+            ok &= sa.inside(p) == want and sb.inside(p) == want
+    for x, y in cam.JOINT:
+        for zz in (26.2, 28.0, 29.8):
+            ok &= not sa.inside((x, y, zz)) and not sb.inside((x, y, zz))
+        # rings just inside and outside the Ø2.5 pilot, below the lead-in: a pilot moved 0.5 breaks one of them
+        for k in range(8):
+            t = math.radians(45 * k)
+            for r, want in ((1.0, False), (1.5, True), (2.6, True)):
+                p = (x + r * math.cos(t), y + r * math.sin(t), 27.5)
+                ok &= sa.inside(p) == want and sb.inside(p) == want
+    return true(ok, "dfr1154 cup joint matches the esp32cam cup (rim outline, pilots)")
+
+
 results = [
     cut("Plate", "e32:plate", "e32:plate_chamfer", "plate top chamfer"),
     cut("Leg", "e32:leg", "e32:magnet", "magnet pocket"),
@@ -194,6 +235,36 @@ results = [
     cut("Bracket", "e32:bracket_rounds", "e32:bracket_chamfers", "bracket end chamfers"),
     cut("Bracket", "e32:bracket_chamfers", "e32:bracket_holes", "bracket holes"),
 ]
+# --- dfr1154 cup
+results += [
+    cut("DfrCup", "dfr:shell", "dfr:hollow", "dfr1154 cup hollow"),
+    true(
+        dv("DfrCup", "dfr:hollow", "dfr:posts") > 50,
+        "dfr1154 board posts",
+        f"({dv('DfrCup', 'dfr:hollow', 'dfr:posts'):.0f})",
+    ),
+    cut("DfrCup", "dfr:posts", "dfr:post_pilots", "dfr1154 post pilots"),
+    true(
+        dv("DfrCup", "dfr:post_pilots", "dfr:bosses") > 50,
+        "dfr1154 bosses",
+        f"({dv('DfrCup', 'dfr:post_pilots', 'dfr:bosses'):.0f})",
+    ),
+    cut("DfrCup", "dfr:bosses", "dfr:pilots", "dfr1154 pilots"),
+    cut("DfrCup", "dfr:pilots", "dfr:usb", "dfr1154 USB-C slot"),
+]
+dfr = Solid(ours("dfr1154-cup"))
+results.append(joint_matches(dfr, Solid(ours("esp32cam-cup"))))
+post_ok = True
+for bx, by in cam.HOLES:
+    x, y = cam.board_to_world(bx, by)
+    zm = (cam.z_inner() + cam.z_pcb_front()) / 2
+    post_ok &= dfr.inside((x + 2.5, y, zm)) and dfr.inside((x - 2.5, y, zm))
+    post_ok &= not dfr.inside((x, y, cam.z_pcb_front() - 3)) and dfr.inside((x, y, cam.z_pcb_front() - 6.5))
+results.append(true(post_ok, "dfr1154 posts under the board holes, Ø2.5 × 6 pilots"))
+standins = sorted(cam.dfr_standins())
+found = interferences(["DfrCup", *standins], lambda a, b: "DfrCup" in (a, b))
+results.append(true(not found, "dfr1154 cup clear of board, parts and USB plug", f"{found}"))
+
 r = ref("prusacoreone_kamera_oben_v3.stl")
 if r:
     results.append(matches("plate", ours("plate"), r))

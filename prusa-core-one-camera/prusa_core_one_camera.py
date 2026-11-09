@@ -93,6 +93,109 @@ BRACKET_PATH = [
 BRACKET_T = 1.5
 BRACKET_H = 10.0
 
+# --- dfr1154: DFRobot DFR1154 (ESP32-S3, OV3660 160° lens). Board coordinates: mm from the top-left corner seen from
+# the camera side, logo edge at the top. Estimates from DFRobot's function diagram (10 px/mm) and dimension drawing,
+# PCB v1.0, not checked against a board: measure before printing (README).
+PCB = 42.0
+PCB_T = 1.6
+HOLES = [(3.5, 3.5), (38.5, 3.5), (3.5, 38.5), (38.5, 38.5)]
+HOLE_D = 3.1
+CAM = (21.0, 14.8)  # lens centre
+CAM_BODY = (9.0, 10.0)
+CAM_H = 6.5  # lens front above the PCB's camera side
+APERTURE_R = 3.5
+FOV_X, FOV_Y = 64.0, 48.0  # half-angles: 160° taken as the diagonal of a 4:3 picture, long side across the board
+IR = [(5.5, 11.3), (5.5, 20.3), (36.5, 11.3), (36.5, 20.3)]
+IR_SIZE = (3.5, 3.0)
+MIC = (6.5, 29.8)
+MIC_SIZE = (3.5, 2.7)
+ALS = (14.8, 38.1)
+ALS_SIZE = (2.0, 2.0)
+FRONT_PART_H = 1.0  # LEDs, mic and light sensor
+# back side, in the same camera-side coordinates: (x0, x1, y0, y1, height)
+BACK_LOW_H = 2.0  # everything not listed
+BACK_H = 8.5  # screw terminal, the tallest part
+BACK_PARTS = {"terminal": (34.7, 42.0, 24.6, 31.2, BACK_H), "gravity": (9.0, 21.1, 34.0, 42.0, 6.0)}
+USB_X = 28.0  # USB-C centre along the bottom edge
+USB_Z = 1.6  # its centre above the PCB's back
+USB_PLUG = (12.5, 7.0, 15.0)  # plug overmould: width, height, length past the board edge
+
+# dfr1154 cup: straight hex with the esp32cam cup's rim, board right behind the front wall
+WALL = 2.0
+FRONT_T = 1.6
+LENS_GAP = 1.0  # lens front behind the front wall's inside
+POST_D = 6.0
+POST_PILOT_D = 2.5  # M3 self-tapping through the board holes
+POST_PILOT_DEPTH = 6.0
+BOSS_H = 6.0  # gussets hang this far from the rim: pilot depth + 2
+CLEAR = 0.5
+
+
+def board_to_world(bx, by):
+    """Camera-side board coordinates to world x, y: board centred on the axis, logo edge toward -Y (picture-up)."""
+    return bx - PCB / 2, by - PCB / 2
+
+
+def depth():
+    """Rim above the front face: the board stack, then whichever needs more room, the tallest back part or a boss
+    over the USB plug."""
+    stack = FRONT_T + LENS_GAP + CAM_H + PCB_T
+    tallest = max(h for *_, h in BACK_PARTS.values()) + 1.0
+    plug = USB_Z + USB_PLUG[1] / 2 + CLEAR + BOSS_H
+    return stack + max(tallest, plug)
+
+
+def z_front():
+    return RIM_Z - depth()
+
+
+def z_inner():
+    return z_front() + FRONT_T
+
+
+def z_lens():
+    return z_inner() + LENS_GAP
+
+
+def z_pcb_front():
+    return z_lens() + CAM_H
+
+
+def z_pcb_back():
+    return z_pcb_front() + PCB_T
+
+
+def dfr_standins():
+    """Board, parts and USB plug as world boxes (x0, x1, y0, y1, z0, z1) per body: context only, never exported."""
+
+    def part(cx, cy, w, h, z0, z1):
+        x, y = board_to_world(cx, cy)
+        return (x - w / 2, x + w / 2, y - h / 2, y + h / 2, z0, z1)
+
+    zf, zb = z_pcb_front(), z_pcb_back()
+    h = PCB / 2
+    front = [part(*c, *IR_SIZE, zf - FRONT_PART_H, zf) for c in IR]
+    front += [part(*MIC, *MIC_SIZE, zf - FRONT_PART_H, zf), part(*ALS, *ALS_SIZE, zf - FRONT_PART_H, zf)]
+    back = [(-h, h, -h, h, zb, zb + BACK_LOW_H)]
+    for x0, x1, y0, y1, ht in BACK_PARTS.values():
+        (wx0, wy0), (wx1, wy1) = board_to_world(x0, y0), board_to_world(x1, y1)
+        back.append((wx0, wx1, wy0, wy1, zb, zb + ht))
+    ux, _ = board_to_world(USB_X, PCB)
+    w, ht, length = USB_PLUG
+    uz = zb + USB_Z
+    return {
+        "DfrPcb": [(-h, h, -h, h, zf, zb)],
+        "DfrCam": [part(*CAM, *CAM_BODY, z_lens(), zf)],
+        "DfrFront": front,
+        "DfrBack": back,
+        "DfrPlug": [(ux - w / 2, ux + w / 2, h, h + length, uz - ht / 2, uz + ht / 2)],
+    }
+
+
+for _bx, _by in [CAM, MIC, ALS, *IR, *HOLES]:
+    assert 0 <= _bx <= PCB and 0 <= _by <= PCB, (_bx, _by)
+assert board_to_world(*CAM)[0] == 0 and abs(board_to_world(*CAM)[1] + 6.2) < 1e-9  # lens 6.2 above centre
+
 
 def hexagon(flats, angle0=90.0):
     """Corners of a hexagon with the given across-flats, corners at angle0 + k·60° (pointy in Y by default)."""
@@ -302,6 +405,64 @@ def build(d):
         cyl("BracketHole", SCREW_CLEAR, (xf - 2, sy * 19.0, BRACKET_H / 2), 4, axis="X", operation="cut", targets=[br])
     mark("e32:bracket_holes")
     export(br, "bracket")
+
+    # --- dfr1154 cup
+    dc = "DfrCup"
+    zf = z_front()
+    plane = {"origin": [0, 0, zf], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
+    prism(dc, hexagon(HEX_F), plane, RIM_Z - zf)
+    corner = HEX_F / 2 / math.cos(math.radians(30))
+    zm = (zf + RIM_Z) / 2
+    edges = [
+        [corner * math.cos(math.radians(90 + 60 * k)), corner * math.sin(math.radians(90 + 60 * k)), zm]
+        for k in range(6)
+    ]
+    cmds.append({"command": "solid.fillet", "params": {"body": dc, "radius": CUP_CORNER_R, "edges": edges}})
+    mark("dfr:shell")
+    plane = {"origin": [0, 0, z_inner()], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
+    prism("DfrInside", hexagon(HEX_F - 2 * WALL), plane, RIM_Z, operation="cut", targets=[dc])
+    mark("dfr:hollow")
+    for i, (bx, by) in enumerate(HOLES):
+        x, y = board_to_world(bx, by)
+        cyl(f"DfrPost{i}", POST_D, (x, y, z_inner() - 0.5), z_pcb_front() - z_inner() + 0.5)
+    combine(dc, [f"DfrPost{i}" for i in range(len(HOLES))], "join")
+    mark("dfr:posts")
+    for bx, by in HOLES:
+        x, y = board_to_world(bx, by)
+        top = z_pcb_front()
+        cyl(
+            "DfrPostPilot",
+            POST_PILOT_D,
+            (x, y, top - POST_PILOT_DEPTH),
+            POST_PILOT_DEPTH + 1,
+            operation="cut",
+            targets=[dc],
+        )
+    mark("dfr:post_pilots")
+    zb = RIM_Z - BOSS_H
+    u0 = BOSS_PROFILE[0][0]
+    profile = [(u0, RIM_Z), (u0 + BOSS_H, zb), (HEX_F / 2 - WALL / 2, zb), (HEX_F / 2 - WALL / 2, RIM_Z)]
+    prism("DfrBoss", profile, radial, BOSS_W, direction="symmetric")
+    rotated_copies("DfrBoss")
+    combine(dc, ["DfrBoss", "DfrBoss1", "DfrBoss2"], "join")
+    mark("dfr:bosses")
+    dia, dep = PILOT
+    for x, y in JOINT:
+        cyl("DfrPilot", dia, (x, y, RIM_Z - dep), dep + 1, operation="cut", targets=[dc])
+    edges = [[x + dia / 2, y, RIM_Z] for x, y in JOINT]
+    cmds.append({"command": "solid.chamfer", "params": {"body": dc, "distance": PILOT_LEAD, "edges": edges}})
+    mark("dfr:pilots")
+    ((px0, px1, py0, _, pz0, pz1),) = dfr_standins()["DfrPlug"]
+    # through the 60° wall only, from 1 mm inside its inner face at the slot's far side
+    y_in = (HEX_F / 2 - WALL - 0.5 * (px1 + CLEAR)) / math.cos(math.radians(30)) - 1
+    box("DfrUsb", px0 - CLEAR, px1 + CLEAR, y_in, RIM_Z + 20, pz0 - CLEAR, pz1 + CLEAR, operation="cut", targets=[dc])
+    mark("dfr:usb")
+    export(dc, "dfr1154-cup")
+    for name, boxes in dfr_standins().items():
+        for i, b in enumerate(boxes):
+            box(f"{name}{i}" if i else name, *b)
+        if len(boxes) > 1:
+            combine(name, [f"{name}{i}" for i in range(1, len(boxes))], "join")
     return cmds, marks
 
 
