@@ -180,7 +180,7 @@ def interferences(bodies, keep, extra=()):
     Exits if the kernel couldn't check every accepted pair, so an incomplete query can't pass as a clean fit."""
     script, res = os.path.join(TMP, "fit.json"), os.path.join(TMP, "fit.r.json")
     probe = {"command": "inspect.interference", "params": {"bodies": bodies, "budget_s": 900}}
-    Path(script).write_text(json.dumps({"commands": cmds + list(extra) + [probe]}))
+    Path(script).write_text(json.dumps({"commands": cmds[: marks["render"]] + list(extra) + [probe]}))
     subprocess.run([SC, "run", script, "--results", "--json-out", res, "--quiet"], check=True, capture_output=True)
     r = json.loads(Path(res).read_text())[-1]
     if r.get("budget_exceeded") or r.get("truncated"):
@@ -398,20 +398,28 @@ found = interferences([*parts, *standins], lambda a, b: bool({a, b} & parts))
 results.append(
     true(not found, "dfr1154 shell and front plate clear of each other, the board, parts and plug", f"{found}")
 )
-# insertion: the board (with its parts, not the plug, plugged in after) leaves through the shell's open end
-h = cam.PCB / 2
-top = zb + max(cam.BACK_LOW_H, *(p[4] for p in cam.BACK_PARTS.values()))
-sweep = {
-    "command": "solid.box",
-    "params": {
-        "length": cam.PCB,
-        "width": cam.PCB,
-        "height": top - (zf - 40),
-        "corner": [-h, -h, zf - 40],
-        "body_name": "Sweep",
-    },
-}
-found = interferences(["DfrCup", "Sweep"], lambda a, b: True, [sweep])
+# insertion: the board and its parts (not the plug, plugged in after) leave through the shell's open end, each
+# component's own outline swept from where it sits down past the front plate
+sweeps, names = [], []
+for name, boxes in cam.dfr_standins().items():
+    if name == "DfrPlug":
+        continue
+    for x0, x1, y0, y1, _, z1 in boxes:
+        names.append(f"Sweep{len(names)}")
+        z0 = zf - 40
+        sweeps.append(
+            {
+                "command": "solid.box",
+                "params": {
+                    "length": x1 - x0,
+                    "width": y1 - y0,
+                    "height": z1 - z0,
+                    "corner": [x0, y0, z0],
+                    "body_name": names[-1],
+                },
+            }
+        )
+found = interferences(["DfrCup", *names], lambda a, b: "DfrCup" in (a, b), sweeps)
 results.append(true(not found, "dfr1154 board slides into the shell from its open end", f"{found}"))
 
 r = ref("prusacoreone_kamera_oben_v3.stl")
