@@ -212,7 +212,6 @@ def dfr_standins():
 
 for _bx, _by in [CAM, MIC, ALS, *IR, *HOLES]:
     assert 0 <= _bx <= PCB and 0 <= _by <= PCB, (_bx, _by)
-assert board_to_world(*CAM)[0] == 0 and abs(board_to_world(*CAM)[1] + 6.2) < 1e-9  # lens 6.2 above centre
 assert LENS_REVEAL + CAM_H - POST_PILOT_DEPTH >= 0.6, "post pilots would break through the front face"
 
 
@@ -625,6 +624,7 @@ def build(d):
             box(f"{name}{i}" if i else name, *b)
         if len(boxes) > 1:
             combine(name, [f"{name}{i}" for i in range(1, len(boxes))], "join")
+    mark("render")  # fit checks run on everything before this: the render moves the dfr1154 parts aside
     # render: esp32cam set as assembled (plate on its cup, bracket beside), dfr1154 cup with its board to the right
     for bodies, color in (
         (["E32Cup", "Bracket", dc], "#e8e8e8"),

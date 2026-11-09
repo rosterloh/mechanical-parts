@@ -26,6 +26,7 @@ sits in the corner on three magnets, and a cup holding the camera screws under i
 | 3 | M3 × 6 self-tapping screws, plate to cup | same, plate to shell |
 | 4 | - | M3 × 6 self-tapping screws, board to front plate |
 | 3 | - | M3 × 6 self-tapping screws, front plate to shell |
+| - | - | black electrical tape or thin black foam, one wrap round the camera module |
 | 1 | AI-Thinker ESP32-CAM | DFRobot DFR1154 + straight USB-C cable |
 
 STEP files sit beside each STL.
@@ -38,8 +39,9 @@ glow through.
 
 ## Assembly (dfr1154)
 
-1. Lay the board on the front plate camera side down, the camera module through its hole, the logo edge toward the
-   corner with the single screw hole (the other two are on the USB side). Screw it onto the four posts.
+1. Wrap one turn of black tape round the camera module's body, so it fills the 0.5 mm gap in its hole. Lay the board
+   on the front plate camera side down, the module through its hole, the logo edge toward the corner with the single
+   screw hole (the other two are on the USB side). Screw it onto the four posts.
 2. Push the front plate into the shell's open end, its lip inside the walls, the USB-C connector toward the shell's
    USB slot. Three screws from the camera side into the shell's corners.
 3. Plug the USB-C cable through the slot.
@@ -58,8 +60,8 @@ glow through.
   plate instead, and `check.py` sweeps the board's outline out of the shell's open end to prove it.
 - The camera module goes through a fitted hole with the lens 0.3 mm behind the face, so nothing crops the 160°
   view: `check.py` traces the picture's edge (64° across, 48° along, 80° in the corners, 160° taken as the diagonal
-  of a 4:3 picture) and finds no front plate in it. The module also closes the case, so no IR from inside reaches
-  the lens.
+  of a 4:3 picture) and finds no front plate in it. The hole leaves 0.5 mm round the module, so IR from inside the
+  case could leak out beside the lens: a wrap of black tape round the module closes it (assembly step 1).
 - The IR LEDs sit about 6 mm behind the face. Straight windows would let them light only about ±23°, a bright patch
   in the middle of a ±64° picture. Each LED pair shares one window that flares toward the camera's view, cut back
   where the posts, the sensor and mic tubes and the screws stand. The checks hold the beam to at least 60° outward,
@@ -88,6 +90,8 @@ Known issues:
   diagonal, and the LEDs' own beam angle (not published; 90-120° is typical). Check the IR flare with a night test;
   only the front plate needs reprinting.
 - The tubes and posts could hit small parts on the board's camera side that DFRobot's diagram doesn't show.
+- The module hole is sized from an estimated 9 × 10 mm module with 0.5 mm all round, closed by tape. Once the module
+  is measured (body and lens barrel), a shoulder in the front plate could close it instead.
 - The esp32cam rebuild is matched to the STLs (≤0.1 % surface misses at 0.5 mm, volume within 0.5 %). The
   Printables licence hasn't been checked (the page refused automated access).
 
