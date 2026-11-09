@@ -530,6 +530,14 @@ def build(d):
             box(f"{name}{i}" if i else name, *b)
         if len(boxes) > 1:
             combine(name, [f"{name}{i}" for i in range(1, len(boxes))], "join")
+    # render: esp32cam set as assembled (plate on its cup, bracket beside), dfr1154 cup with its board to the right
+    for bodies, color in (
+        (["E32Cup", "Bracket", dc], "#e8e8e8"),
+        (["Plate"], "#e07b39"),
+        (list(dfr_standins()), "#b8bcc2"),
+    ):
+        cmds.append({"command": "appearance.assign", "params": {"bodies": bodies, "color": color}})
+    cmds.append({"command": "solid.move", "params": {"bodies": [dc, *dfr_standins()], "translate": [90, 0, 0]}})
     return cmds, marks
 
 
