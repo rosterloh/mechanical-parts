@@ -452,7 +452,7 @@ def build(d):
     edges = [[x + dia / 2, y, RIM_Z] for x, y in JOINT]
     cmds.append({"command": "solid.chamfer", "params": {"body": dc, "distance": PILOT_LEAD, "edges": edges}})
     mark("dfr:pilots")
-    ((px0, px1, py0, _, pz0, pz1),) = dfr_standins()["DfrPlug"]
+    ((px0, px1, _, _, pz0, pz1),) = dfr_standins()["DfrPlug"]
     # through the 60° wall only, from 1 mm inside its inner face at the slot's far side
     y_in = (HEX_F / 2 - WALL - 0.5 * (px1 + CLEAR)) / math.cos(math.radians(30)) - 1
     box("DfrUsb", px0 - CLEAR, px1 + CLEAR, y_in, RIM_Z + 20, pz0 - CLEAR, pz1 + CLEAR, operation="cut", targets=[dc])
