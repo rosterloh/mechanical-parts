@@ -99,7 +99,6 @@ BRACKET_H = 10.0
 PCB = 42.0
 PCB_T = 1.6
 HOLES = [(3.5, 3.5), (38.5, 3.5), (3.5, 38.5), (38.5, 38.5)]
-HOLE_D = 3.1
 CAM = (21.0, 14.8)  # lens centre
 CAM_BODY = (9.0, 10.0)
 CAM_H = 6.5  # lens front above the PCB's camera side
@@ -120,19 +119,33 @@ USB_X = 28.0  # USB-C centre along the bottom edge
 USB_Z = 1.6  # its centre above the PCB's back
 USB_PLUG = (12.5, 7.0, 15.0)  # plug overmould: width, height, length past the board edge
 
-# dfr1154 cup: straight hex with the esp32cam cup's rim, board right behind the front wall
+# dfr1154 cup: two parts. A straight hex shell, open at the camera end, carries the plate joint; a front plate
+# (bezel) carries the board on posts and every opening, slides into the shell's open end on a lip and screws into it
 WALL = 2.0
 FRONT_T = 1.6
-LENS_GAP = 1.0  # lens front behind the front wall's inside
+LENS_REVEAL = 0.3  # lens front behind the outer face: the module goes through a fitted hole, nothing crops the view
+CAM_CLEAR = 0.5  # module hole over the module, per side
 POST_D = 6.0
 POST_PILOT_D = 2.5  # M3 self-tapping through the board holes
 POST_PILOT_DEPTH = 6.0
-BOSS_H = 6.0  # gussets hang this far from the rim: pilot depth + 2
+BOSS_H = 6.0  # plate-joint gussets hang this far from the rim: pilot depth + 2
 CLEAR = 0.5
-TUBE_WALL = 0.8  # light tubes from the front wall to just above the board, so no IR reaches the lens inside
+FIT = 0.2  # front plate's lip inside the shell walls
+LIP_T, LIP_H = 1.2, 2.0
+BEZEL_SCREWS = [
+    (32.0 * math.cos(math.radians(a)), 32.0 * math.sin(math.radians(a))) for a in (30, 150, 270)
+]  # free corners
+BEZEL_BOSS_D = 7.0
+BEZEL_PILOT_DEPTH = 6.0
+BEZEL_HOLE = 3.4
+TUBE_WALL = 0.8  # light sensor and mic tubes, front plate to just above the board, keep the IR inside off them
 TUBE_GAP = 0.3  # tube ends this far off the board
 WINDOW_CLEAR = 1.0  # window and tube bore over the part's size
 MIC_HOLE = 1.5
+IR_WALL = 2.0  # front plate left between the module hole and each IR window
+IR_FLARE = (FOV_X, FOV_Y)  # IR windows open toward the camera's view; clipped where posts, tubes and screws stand
+IR_REACH = (60.0, 40.0, 30.0)  # checked: the beam leaves at least this far outward, up and down (posts limit down)
+KEEP = 0.8  # material kept around posts, tubes and screw holes next to a window
 VENT = (2.0, 4.0)  # slot width, spacing; three per free flat, from the board's back to 3 below the rim
 
 
@@ -144,7 +157,7 @@ def board_to_world(bx, by):
 def depth():
     """Rim above the front face: the board stack, then whichever needs more room, the tallest back part or a boss
     over the USB plug."""
-    stack = FRONT_T + LENS_GAP + CAM_H + PCB_T
+    stack = LENS_REVEAL + CAM_H + PCB_T
     tallest = max(h for *_, h in BACK_PARTS.values()) + 1.0
     plug = USB_Z + USB_PLUG[1] / 2 + CLEAR + BOSS_H
     return stack + max(tallest, plug)
@@ -159,7 +172,7 @@ def z_inner():
 
 
 def z_lens():
-    return z_inner() + LENS_GAP
+    return z_front() + LENS_REVEAL
 
 
 def z_pcb_front():
@@ -191,7 +204,7 @@ def dfr_standins():
     return {
         "DfrPcb": [(-h, h, -h, h, zf, zb)],
         "DfrCam": [part(*CAM, *CAM_BODY, z_lens(), zf)],
-        "DfrFront": front,
+        "DfrParts": front,
         "DfrBack": back,
         "DfrPlug": [(ux - w / 2, ux + w / 2, h, h + length, uz - ht / 2, uz + ht / 2)],
     }
@@ -200,6 +213,46 @@ def dfr_standins():
 for _bx, _by in [CAM, MIC, ALS, *IR, *HOLES]:
     assert 0 <= _bx <= PCB and 0 <= _by <= PCB, (_bx, _by)
 assert board_to_world(*CAM)[0] == 0 and abs(board_to_world(*CAM)[1] + 6.2) < 1e-9  # lens 6.2 above centre
+assert LENS_REVEAL + CAM_H - POST_PILOT_DEPTH >= 0.6, "post pilots would break through the front face"
+
+
+def keepouts():
+    """Front-plate features an IR window must stay clear of, as world rectangles (x0, x1, y0, y1)."""
+    out = []
+    for bx, by in HOLES:
+        x, y = board_to_world(bx, by)
+        out.append((x - POST_D / 2, x + POST_D / 2, y - POST_D / 2, y + POST_D / 2))
+    for c, (w, h) in ((ALS, ALS_SIZE), (MIC, MIC_SIZE)):
+        x, y = board_to_world(*c)
+        hw, hh = w / 2 + WINDOW_CLEAR / 2 + TUBE_WALL, h / 2 + WINDOW_CLEAR / 2 + TUBE_WALL
+        out.append((x - hw, x + hw, y - hh, y + hh))
+    for x, y in BEZEL_SCREWS:
+        out.append((x - BEZEL_BOSS_D / 2, x + BEZEL_BOSS_D / 2, y - BEZEL_BOSS_D / 2, y + BEZEL_BOSS_D / 2))
+    return out
+
+
+def ir_window(side, z):
+    """One window per LED pair (side +1: +x, -1: -x) at height z: the LEDs' outline grown by the flare angles over
+    the distance up from their tops, then clipped by the module hole, the lip and the keepouts. World x0, x1, y0, y1."""
+    leds = [board_to_world(*c) for c in IR if (board_to_world(*c)[0] > 0) == (side > 0)]
+    w, h = IR_SIZE
+    xs = [abs(x) for x, _ in leds]
+    ys = [y for _, y in leds]
+    rise = (z_pcb_front() - FRONT_PART_H) - z
+    gx, gy = rise * math.tan(math.radians(IR_FLARE[0])), rise * math.tan(math.radians(IR_FLARE[1]))
+    near = max(min(xs) - w / 2 - gx, CAM_BODY[0] / 2 + CAM_CLEAR + IR_WALL)
+    far = min(max(xs) + w / 2 + gx, HEX_F / 2 - WALL - FIT - LIP_T - 1.0)
+    y0, y1 = min(ys) - h / 2 - gy, max(ys) + h / 2 + gy
+    for kx0, kx1, ky0, ky1 in keepouts():
+        lo, hi = (kx0, kx1) if side > 0 else (-kx1, -kx0)  # distance out from the lens on this side
+        if hi < near or lo > far:
+            continue  # not beside the window
+        if ky0 >= max(ys):
+            y1 = min(y1, ky0 - KEEP)
+        elif ky1 <= min(ys):
+            y0 = max(y0, ky1 + KEEP)
+    x0, x1 = (near, far) if side > 0 else (-far, -near)
+    return x0, x1, y0, y1
 
 
 def hexagon(flats, angle0=90.0):
@@ -411,39 +464,21 @@ def build(d):
     mark("e32:bracket_holes")
     export(br, "bracket")
 
-    # --- dfr1154 cup
-    dc = "DfrCup"
-    zf = z_front()
-    plane = {"origin": [0, 0, zf], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
-    prism(dc, hexagon(HEX_F), plane, RIM_Z - zf)
+    # --- dfr1154 shell: rim and plate joint as the esp32cam cup, open at the camera end
+    dc, zi = "DfrCup", z_inner()
     corner = HEX_F / 2 / math.cos(math.radians(30))
-    zm = (zf + RIM_Z) / 2
+    plane = {"origin": [0, 0, zi], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
+    prism(dc, hexagon(HEX_F), plane, RIM_Z - zi)
+    zm = (zi + RIM_Z) / 2
     edges = [
         [corner * math.cos(math.radians(90 + 60 * k)), corner * math.sin(math.radians(90 + 60 * k)), zm]
         for k in range(6)
     ]
     cmds.append({"command": "solid.fillet", "params": {"body": dc, "radius": CUP_CORNER_R, "edges": edges}})
     mark("dfr:shell")
-    plane = {"origin": [0, 0, z_inner()], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
-    prism("DfrInside", hexagon(HEX_F - 2 * WALL), plane, RIM_Z, operation="cut", targets=[dc])
+    plane = {"origin": [0, 0, zi - 1], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
+    prism("DfrInside", hexagon(HEX_F - 2 * WALL), plane, RIM_Z - zi + 2, operation="cut", targets=[dc])
     mark("dfr:hollow")
-    for i, (bx, by) in enumerate(HOLES):
-        x, y = board_to_world(bx, by)
-        cyl(f"DfrPost{i}", POST_D, (x, y, z_inner() - 0.5), z_pcb_front() - z_inner() + 0.5)
-    combine(dc, [f"DfrPost{i}" for i in range(len(HOLES))], "join")
-    mark("dfr:posts")
-    for bx, by in HOLES:
-        x, y = board_to_world(bx, by)
-        top = z_pcb_front()
-        cyl(
-            "DfrPostPilot",
-            POST_PILOT_D,
-            (x, y, top - POST_PILOT_DEPTH),
-            POST_PILOT_DEPTH + 1,
-            operation="cut",
-            targets=[dc],
-        )
-    mark("dfr:post_pilots")
     zb = RIM_Z - BOSS_H
     u0 = BOSS_PROFILE[0][0]
     profile = [(u0, RIM_Z), (u0 + BOSS_H, zb), (HEX_F / 2 - WALL / 2, zb), (HEX_F / 2 - WALL / 2, RIM_Z)]
@@ -457,17 +492,27 @@ def build(d):
     edges = [[x + dia / 2, y, RIM_Z] for x, y in JOINT]
     cmds.append({"command": "solid.chamfer", "params": {"body": dc, "distance": PILOT_LEAD, "edges": edges}})
     mark("dfr:pilots")
+    # front plate screw bosses: columns in the free corners up to the rim, so they print standing (shell rim down)
+    bosses = []
+    for i, (x, y) in enumerate(BEZEL_SCREWS):
+        cyl(f"DfrBezelBoss{i}", BEZEL_BOSS_D, (x, y, zi), RIM_Z - zi)
+        bosses.append(f"DfrBezelBoss{i}")
+    combine(dc, bosses, "join")
+    mark("dfr:bezel_bosses")
+    for x, y in BEZEL_SCREWS:
+        cyl("DfrBezelPilot", POST_PILOT_D, (x, y, zi - 1), BEZEL_PILOT_DEPTH + 1, operation="cut", targets=[dc])
+    mark("dfr:bezel_pilots")
     ((px0, px1, _, _, pz0, pz1),) = dfr_standins()["DfrPlug"]
     # through the 60° wall only, from 1 mm inside its inner face at the slot's far side
     y_in = (HEX_F / 2 - WALL - 0.5 * (px1 + CLEAR)) / math.cos(math.radians(30)) - 1
-    box("DfrUsb", px0 - CLEAR, px1 + CLEAR, y_in, RIM_Z + 20, pz0 - CLEAR, pz1 + CLEAR, operation="cut", targets=[dc])
+    box("DfrUsb", px0 - CLEAR, px1 + CLEAR, y_in, corner + 5, pz0 - CLEAR, pz1 + CLEAR, operation="cut", targets=[dc])
     mark("dfr:usb")
     w, pitch = VENT
     z0, z1 = z_pcb_back() + CLEAR, RIM_Z - 3
+    r = HEX_F / 2 - WALL / 2
     for phi in (0, 120, 240):
         for k in (-1, 0, 1):
             # built on the 0° flat, then turned into place
-            r = HEX_F / 2 - WALL / 2
             box("DfrVent", r - WALL, r + WALL, k * pitch - w / 2, k * pitch + w / 2, z0, z1)
             if phi:
                 cmds.append(
@@ -478,53 +523,103 @@ def build(d):
                 )
             combine(dc, ["DfrVent"], "cut")
     mark("dfr:vents")
-    # lens: a 4:3 funnel from the aperture at the lens front, opening at the field-of-view half-angles; lofted between
-    # rectangles 0.5 past both faces of the front wall
-    lx, ly = board_to_world(*CAM)
-    for name, z in (("DfrLensIn", z_inner() + 0.5), ("DfrLensOut", z_front() - 0.5)):
-        dl = z_lens() - z
-        hx = APERTURE_R + dl * math.tan(math.radians(FOV_X))
-        hy = APERTURE_R + dl * math.tan(math.radians(FOV_Y))
-        pts = [(lx - hx, ly - hy), (lx + hx, ly - hy), (lx + hx, ly + hy), (lx - hx, ly + hy)]
-        cmds.append(
-            {
-                "command": "sketch.create",
-                "params": {"plane": {"origin": [0, 0, z], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}, "name": name},
-            }
-        )
-        cmds.append({"command": "sketch.line", "params": {"points": [list(q) for q in pts], "closed": True}})
-        cmds.append({"command": "sketch.finish", "params": {}})
+    export(dc, "dfr1154-cup")
+
+    # --- dfr1154 front plate: board on posts, module through a fitted hole, IR windows, sensor and mic tubes
+    bz, zf = "DfrBezel", z_front()
+    plane = {"origin": [0, 0, zf], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
+    prism(bz, hexagon(HEX_F), plane, FRONT_T)
+    edges = [
+        [corner * math.cos(math.radians(90 + 60 * k)), corner * math.sin(math.radians(90 + 60 * k)), zf + FRONT_T / 2]
+        for k in range(6)
+    ]
+    cmds.append({"command": "solid.fillet", "params": {"body": bz, "radius": CUP_CORNER_R, "edges": edges}})
+    mark("dfr:bezel")
+    lip_out = HEX_F - 2 * WALL - 2 * FIT
     cmds.append(
         {
-            "command": "solid.loft",
+            "command": "sketch.create",
             "params": {
-                "sections": [{"sketch": "DfrLensIn"}, {"sketch": "DfrLensOut"}],
-                "operation": "cut",
-                "targets": [dc],
+                "plane": {"origin": [0, 0, zi - 0.5], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]},
+                "name": "DfrLipSk",
             },
         }
     )
-    mark("dfr:lens")
+    for f in (lip_out, lip_out - 2 * LIP_T):
+        cmds.append({"command": "sketch.line", "params": {"points": [list(q) for q in hexagon(f)], "closed": True}})
+    cmds.append({"command": "sketch.finish", "params": {}})
+    cmds.append({"command": "solid.extrude", "params": {"distance": LIP_H + 0.5, "body_name": "DfrLip"}})
+    for x, y in BEZEL_SCREWS:  # notches for the shell's screw bosses
+        cyl("DfrLipNotch", BEZEL_BOSS_D + 2 * FIT + 1, (x, y, zi), LIP_H + 1, operation="cut", targets=["DfrLip"])
+    combine(bz, ["DfrLip"], "join")
+    mark("dfr:lip")
+    for i, (bx, by) in enumerate(HOLES):
+        x, y = board_to_world(bx, by)
+        cyl(f"DfrPost{i}", POST_D, (x, y, zi - 0.5), z_pcb_front() - zi + 0.5)
+    combine(bz, [f"DfrPost{i}" for i in range(len(HOLES))], "join")
+    mark("dfr:posts")
+    top = z_pcb_front()
+    for bx, by in HOLES:
+        x, y = board_to_world(bx, by)
+        cyl(
+            "DfrPostPilot",
+            POST_PILOT_D,
+            (x, y, top - POST_PILOT_DEPTH),
+            POST_PILOT_DEPTH + 1,
+            operation="cut",
+            targets=[bz],
+        )
+    mark("dfr:post_pilots")
+    lx, ly = board_to_world(*CAM)
+    hx, hy = CAM_BODY[0] / 2 + CAM_CLEAR, CAM_BODY[1] / 2 + CAM_CLEAR
+    box("DfrModuleHole", lx - hx, lx + hx, ly - hy, ly + hy, zf - 1, zi + 1, operation="cut", targets=[bz])
+    mark("dfr:module_hole")
+    for side in (1, -1):
+        names = []
+        for name, z in ((f"DfrIrIn{side}", zi + 0.5), (f"DfrIrOut{side}", zf - 0.5)):
+            x0, x1, y0, y1 = ir_window(side, z)
+            cmds.append(
+                {
+                    "command": "sketch.create",
+                    "params": {"plane": {"origin": [0, 0, z], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}, "name": name},
+                }
+            )
+            cmds.append(
+                {
+                    "command": "sketch.line",
+                    "params": {"points": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], "closed": True},
+                }
+            )
+            cmds.append({"command": "sketch.finish", "params": {}})
+            names.append(name)
+        cmds.append(
+            {
+                "command": "solid.loft",
+                "params": {"sections": [{"sketch": n} for n in names], "operation": "cut", "targets": [bz]},
+            }
+        )
+    mark("dfr:ir")
     tube_top = z_pcb_front() - TUBE_GAP
-    holes = [(c, IR_SIZE, None) for c in IR] + [(ALS, ALS_SIZE, None), (MIC, MIC_SIZE, MIC_HOLE)]
-    tubes = []
+    holes = [(ALS, ALS_SIZE, None), (MIC, MIC_SIZE, MIC_HOLE)]
     for i, (c, (w, h), _) in enumerate(holes):
         x, y = board_to_world(*c)
         hw, hh = w / 2 + WINDOW_CLEAR / 2 + TUBE_WALL, h / 2 + WINDOW_CLEAR / 2 + TUBE_WALL
-        box(f"DfrTube{i}", x - hw, x + hw, y - hh, y + hh, z_inner() - 0.5, tube_top)
-        tubes.append(f"DfrTube{i}")
-    combine(dc, tubes, "join")
+        box(f"DfrTube{i}", x - hw, x + hw, y - hh, y + hh, zi - 0.5, tube_top)
+    combine(bz, [f"DfrTube{i}" for i in range(len(holes))], "join")
     mark("dfr:tubes")
     for c, (w, h), hole in holes:
         x, y = board_to_world(*c)
         hw, hh = w / 2 + WINDOW_CLEAR / 2, h / 2 + WINDOW_CLEAR / 2
-        if hole:  # mic: a small hole through the front, the tube's bore stops at the wall
-            box("DfrBore", x - hw, x + hw, y - hh, y + hh, z_inner(), tube_top + 1, operation="cut", targets=[dc])
-            cyl("DfrMicHole", hole, (x, y, z_front() - 1), FRONT_T + 2, operation="cut", targets=[dc])
+        if hole:  # mic: a small hole through the front, the tube's bore stops at the plate
+            box("DfrBore", x - hw, x + hw, y - hh, y + hh, zi, tube_top + 1, operation="cut", targets=[bz])
+            cyl("DfrMicHole", hole, (x, y, zf - 1), FRONT_T + 2, operation="cut", targets=[bz])
         else:
-            box("DfrWindow", x - hw, x + hw, y - hh, y + hh, z_front() - 1, tube_top + 1, operation="cut", targets=[dc])
+            box("DfrWindow", x - hw, x + hw, y - hh, y + hh, zf - 1, tube_top + 1, operation="cut", targets=[bz])
     mark("dfr:windows")
-    export(dc, "dfr1154-cup")
+    for x, y in BEZEL_SCREWS:
+        cyl("DfrBezelHole", BEZEL_HOLE, (x, y, zf - 1), FRONT_T + LIP_H + 2, operation="cut", targets=[bz])
+    mark("dfr:bezel_holes")
+    export(bz, "dfr1154-front")
     for name, boxes in dfr_standins().items():
         for i, b in enumerate(boxes):
             box(f"{name}{i}" if i else name, *b)
@@ -533,11 +628,12 @@ def build(d):
     # render: esp32cam set as assembled (plate on its cup, bracket beside), dfr1154 cup with its board to the right
     for bodies, color in (
         (["E32Cup", "Bracket", dc], "#e8e8e8"),
+        ([bz], "#3a3a3a"),
         (["Plate"], "#e07b39"),
         (list(dfr_standins()), "#b8bcc2"),
     ):
         cmds.append({"command": "appearance.assign", "params": {"bodies": bodies, "color": color}})
-    cmds.append({"command": "solid.move", "params": {"bodies": [dc, *dfr_standins()], "translate": [90, 0, 0]}})
+    cmds.append({"command": "solid.move", "params": {"bodies": [dc, bz, *dfr_standins()], "translate": [90, 0, 0]}})
     return cmds, marks
 
 

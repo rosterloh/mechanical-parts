@@ -175,12 +175,12 @@ def cut(body, a, b, what):
     return true(dv(body, a, b) < -1, what, f"({dv(body, a, b):.1f} mm³)")
 
 
-def interferences(bodies, keep):
-    """Overlapping pairs among `bodies` that `keep` accepts (touching faces don't count). Exits if the kernel
-    couldn't check every accepted pair, so an incomplete query can't pass as a clean fit."""
+def interferences(bodies, keep, extra=()):
+    """Overlapping pairs among `bodies` that `keep` accepts (touching faces don't count), after the `extra` commands.
+    Exits if the kernel couldn't check every accepted pair, so an incomplete query can't pass as a clean fit."""
     script, res = os.path.join(TMP, "fit.json"), os.path.join(TMP, "fit.r.json")
     probe = {"command": "inspect.interference", "params": {"bodies": bodies, "budget_s": 900}}
-    Path(script).write_text(json.dumps({"commands": cmds + [probe]}))
+    Path(script).write_text(json.dumps({"commands": cmds + list(extra) + [probe]}))
     subprocess.run([SC, "run", script, "--results", "--json-out", res, "--quiet"], check=True, capture_output=True)
     r = json.loads(Path(res).read_text())[-1]
     if r.get("budget_exceeded") or r.get("truncated"):
@@ -194,25 +194,26 @@ def interferences(bodies, keep):
 def joint_matches(a, b):
     """The dfr1154 cup meets the plate as the esp32cam cup does: rim outline (band just inside it solid, just outside
     empty) and the three pilots (empty bore, solid ring) agree in both."""
-    sa, sb = a, b
     ok = True
     z = cam.RIM_Z - 0.1
     for k in range(72):
         t = math.radians(5 * k + 2.5)
         # outer outline: hex across flats HEX_F, rounded corners; walk in from 40 mm to the first solid point of b
-        r_out = next(r / 20 for r in range(800, 400, -1) if sb.inside((r / 20 * math.cos(t), r / 20 * math.sin(t), z)))
+        r_out = next(
+            (r / 20 for r in range(800, 400, -1) if b.inside((r / 20 * math.cos(t), r / 20 * math.sin(t), z))), 0
+        )
         for dr, want in ((-0.3, True), (-1.8, True), (0.3, False)):
             p = ((r_out + dr) * math.cos(t), (r_out + dr) * math.sin(t), z)
-            ok &= sa.inside(p) == want and sb.inside(p) == want
+            ok &= a.inside(p) == want and b.inside(p) == want
     for x, y in cam.JOINT:
         for zz in (26.2, 28.0, 29.8):
-            ok &= not sa.inside((x, y, zz)) and not sb.inside((x, y, zz))
+            ok &= not a.inside((x, y, zz)) and not b.inside((x, y, zz))
         # rings just inside and outside the Ø2.5 pilot, below the lead-in: a pilot moved 0.5 breaks one of them
         for k in range(8):
             t = math.radians(45 * k)
             for r, want in ((1.0, False), (1.5, True), (2.6, True)):
                 p = (x + r * math.cos(t), y + r * math.sin(t), 27.5)
-                ok &= sa.inside(p) == want and sb.inside(p) == want
+                ok &= a.inside(p) == want and b.inside(p) == want
     return true(ok, "dfr1154 cup joint matches the esp32cam cup (rim outline, pilots)")
 
 
@@ -235,32 +236,27 @@ results = [
     cut("Bracket", "e32:bracket_rounds", "e32:bracket_chamfers", "bracket end chamfers"),
     cut("Bracket", "e32:bracket_chamfers", "e32:bracket_holes", "bracket holes"),
 ]
-# --- dfr1154 cup
+# --- dfr1154: shell (DfrCup) and front plate (DfrBezel)
 results += [
-    cut("DfrCup", "dfr:shell", "dfr:hollow", "dfr1154 cup hollow"),
-    true(
-        dv("DfrCup", "dfr:hollow", "dfr:posts") > 50,
-        "dfr1154 board posts",
-        f"({dv('DfrCup', 'dfr:hollow', 'dfr:posts'):.0f})",
-    ),
-    cut("DfrCup", "dfr:posts", "dfr:post_pilots", "dfr1154 post pilots"),
-    true(
-        dv("DfrCup", "dfr:post_pilots", "dfr:bosses") > 50,
-        "dfr1154 bosses",
-        f"({dv('DfrCup', 'dfr:post_pilots', 'dfr:bosses'):.0f})",
-    ),
-    cut("DfrCup", "dfr:bosses", "dfr:pilots", "dfr1154 pilots"),
-    cut("DfrCup", "dfr:pilots", "dfr:usb", "dfr1154 USB-C slot"),
+    cut("DfrCup", "dfr:shell", "dfr:hollow", "dfr1154 shell hollow"),
+    true(dv("DfrCup", "dfr:hollow", "dfr:bosses") > 50, "dfr1154 plate-joint bosses"),
+    cut("DfrCup", "dfr:bosses", "dfr:pilots", "dfr1154 plate-joint pilots"),
+    true(dv("DfrCup", "dfr:pilots", "dfr:bezel_bosses") > 50, "dfr1154 front plate screw bosses"),
+    cut("DfrCup", "dfr:bezel_bosses", "dfr:bezel_pilots", "dfr1154 front plate screw pilots"),
+    cut("DfrCup", "dfr:bezel_pilots", "dfr:usb", "dfr1154 USB-C slot"),
+    cut("DfrCup", "dfr:usb", "dfr:vents", "dfr1154 vents"),
+    true(dv("DfrBezel", "dfr:bezel", "dfr:lip") > 50, "dfr1154 front plate lip"),
+    true(dv("DfrBezel", "dfr:lip", "dfr:posts") > 50, "dfr1154 board posts"),
+    cut("DfrBezel", "dfr:posts", "dfr:post_pilots", "dfr1154 post pilots"),
+    cut("DfrBezel", "dfr:post_pilots", "dfr:module_hole", "dfr1154 camera module hole"),
+    cut("DfrBezel", "dfr:module_hole", "dfr:ir", "dfr1154 IR windows"),
+    true(dv("DfrBezel", "dfr:ir", "dfr:tubes") > 10, "dfr1154 light sensor and mic tubes"),
+    cut("DfrBezel", "dfr:tubes", "dfr:windows", "dfr1154 light sensor window, mic hole"),
+    cut("DfrBezel", "dfr:windows", "dfr:bezel_holes", "dfr1154 front plate screw holes"),
 ]
-dfr = Solid(ours("dfr1154-cup"))
-results.append(joint_matches(dfr, Solid(ours("esp32cam-cup"))))
-post_ok = True
-for bx, by in cam.HOLES:
-    x, y = cam.board_to_world(bx, by)
-    zm = (cam.z_inner() + cam.z_pcb_front()) / 2
-    post_ok &= dfr.inside((x + 2.5, y, zm)) and dfr.inside((x - 2.5, y, zm))
-    post_ok &= not dfr.inside((x, y, cam.z_pcb_front() - 3)) and dfr.inside((x, y, cam.z_pcb_front() - 6.5))
-results.append(true(post_ok, "dfr1154 posts under the board holes, Ø2.5 × 6 pilots"))
+shell, bezel = Solid(ours("dfr1154-cup")), Solid(ours("dfr1154-front"))
+results.append(joint_matches(shell, Solid(ours("esp32cam-cup"))))
+zf, zi, zl, zp, zb = cam.z_front(), cam.z_inner(), cam.z_lens(), cam.z_pcb_front(), cam.z_pcb_back()
 
 
 def open_column(solid, x, y, z0, z1, step=0.2):
@@ -269,49 +265,116 @@ def open_column(solid, x, y, z0, z1, step=0.2):
     return all(not solid.inside((x, y, z0 + (z1 - z0) * i / n)) for i in range(n + 1))
 
 
-zf, zi, zl, zp = cam.z_front(), cam.z_inner(), cam.z_lens(), cam.z_pcb_front()
+def open_ray(solid, p, q, step=0.2):
+    """Every point on the segment p→q is outside the solid."""
+    n = max(1, int(math.dist(p, q) / step))
+    return all(not solid.inside(tuple(p[k] + (q[k] - p[k]) * i / n for k in range(3))) for i in range(n + 1))
+
+
+post_ok = True
+for bx, by in cam.HOLES:
+    x, y = cam.board_to_world(bx, by)
+    zm = (zi + zp) / 2
+    post_ok &= bezel.inside((x + 2.5, y, zm)) and bezel.inside((x - 2.5, y, zm))
+    bottom = zp - cam.POST_PILOT_DEPTH
+    post_ok &= open_column(bezel, x, y, bottom + 0.3, zp + 0.5) and bezel.inside((x, y, bottom - 0.3))
+    post_ok &= bezel.inside((x, y, zf + 0.2))  # the pilot doesn't break through the face
+results.append(true(post_ok, f"dfr1154 posts under the board holes, Ø2.5 × {cam.POST_PILOT_DEPTH:g} pilots"))
+
+# camera: nothing of the front plate in the lens's view. Equidistant lens, the picture's edge at FOV_X across and
+# FOV_Y along, so its boundary at azimuth psi is min(FOV_X/|cos psi|, FOV_Y/|sin psi|) off axis (80° at the corners)
 lx, ly = cam.board_to_world(*cam.CAM)
-d = zl - zf
-hx = cam.APERTURE_R + d * math.tan(math.radians(cam.FOV_X))
-hy = cam.APERTURE_R + d * math.tan(math.radians(cam.FOV_Y))
-z_out = zf + 0.05
-lens_ok = open_column(dfr, lx, ly, zf - 1, zl)
-lens_ok &= not dfr.inside((lx + hx - 0.3, ly, z_out)) and dfr.inside((lx + hx + 0.5, ly, z_out))
-lens_ok &= not dfr.inside((lx, ly + hy - 0.3, z_out)) and dfr.inside((lx, ly + hy + 0.5, z_out))
-results.append(true(lens_ok, "dfr1154 lens opening: open to the lens, 4:3 funnel to the field of view at the face"))
+fov_ok = open_column(bezel, lx, ly, zf - 1, zl)
+for k in range(72):
+    psi = math.radians(5 * k + 1)
+    c, s = abs(math.cos(psi)), abs(math.sin(psi))
+    theta = min(cam.FOV_X / c if c > 1e-6 else 90, cam.FOV_Y / s if s > 1e-6 else 90, 89.0)
+    for frac in (0.0, 0.5, 1.0):  # aperture edge and middle
+        r0 = cam.APERTURE_R * frac
+        p = (lx + r0 * math.cos(psi), ly + r0 * math.sin(psi), zl)
+        dz = zl - (zf - 0.5)
+        reach = r0 + dz * math.tan(math.radians(theta))
+        q = (lx + reach * math.cos(psi), ly + reach * math.sin(psi), zf - 0.5)
+        fov_ok &= open_ray(bezel, p, q)
+results.append(true(fov_ok, "dfr1154 nothing of the front plate in the 160° picture"))
+
+
+# IR: how far off axis each LED's light gets out (outward, up, down) with nothing of the front plate, posts or tubes
+# in the way, against IR_REACH; a wall stays between the module hole and each window
+def ir_reach(x, y, top, dx, dy):
+    """Widest angle (whole degrees) a ray from the LED at (x, y, top) clears the front plate along (dx, dy)."""
+    h = top - (zf - 0.5)
+    best = -1
+    for ang in range(90):
+        t = h * math.tan(math.radians(ang))
+        if not open_ray(bezel, (x, y, top - 0.1), (x + dx * t, y + dy * t, zf - 0.5)):
+            break
+        best = ang
+    return best
+
+
+ir_ok, reached = True, []
+hole = cam.CAM_BODY[0] / 2 + cam.CAM_CLEAR
+for bx, by in cam.IR:
+    x, y = cam.board_to_world(bx, by)
+    top = zp - cam.FRONT_PART_H
+    out = math.copysign(1, x)
+    got = (ir_reach(x, y, top, out, 0), ir_reach(x, y, top, 0, 1), ir_reach(x, y, top, 0, -1))
+    reached.append(got)
+    ir_ok &= all(g >= want for g, want in zip(got, cam.IR_REACH))
+    ir_ok &= bezel.inside((lx + out * (hole + cam.IR_WALL / 2), y, zf + cam.FRONT_T / 2))
+results.append(
+    true(
+        ir_ok,
+        "dfr1154 IR windows: beam out/up/down per LED vs IR_REACH, walled off from the camera module",
+        f"{reached} want ≥ {cam.IR_REACH}",
+    )
+)
 
 
 def tube_ok(c, size, through=True):
-    """Window open through the front (if `through`) and a tube wall on all four sides from the front wall to just
+    """Window open through the front (if `through`) and a tube wall on all four sides from the front plate to just
     above the board."""
     x, y = cam.board_to_world(*c)
-    hw, hh = size[0] / 2 + 0.5, size[1] / 2 + 0.5
-    ok = open_column(dfr, x, y, zf - 1, zp - 0.4) if through else open_column(dfr, x, y, zi, zp - 0.4)
-    zm = (zi + zp - 0.3) / 2
+    hw, hh = size[0] / 2 + cam.WINDOW_CLEAR / 2, size[1] / 2 + cam.WINDOW_CLEAR / 2
+    ok = open_column(bezel, x, y, zf - 1, zp - 0.4) if through else open_column(bezel, x, y, zi, zp - 0.4)
+    zm = (zi + zp - cam.TUBE_GAP) / 2
     for px, py in ((x + hw + 0.4, y), (x - hw - 0.4, y), (x, y + hh + 0.4), (x, y - hh - 0.4)):
-        ok &= dfr.inside((px, py, zm))
+        ok &= bezel.inside((px, py, zm))
     return ok
 
 
-results.append(true(all(tube_ok(c, cam.IR_SIZE) for c in cam.IR), "dfr1154 IR LED windows with light tubes"))
 results.append(true(tube_ok(cam.ALS, cam.ALS_SIZE), "dfr1154 light sensor window with tube"))
 mx, my = cam.board_to_world(*cam.MIC)
-mic_ok = tube_ok(cam.MIC, cam.MIC_SIZE, through=False) and open_column(dfr, mx, my, zf - 1, zi + 0.5)
-mic_ok &= dfr.inside((mx + 1.2, my, zf + 0.8))  # a small hole, not a window
+mic_ok = tube_ok(cam.MIC, cam.MIC_SIZE, through=False) and open_column(bezel, mx, my, zf - 1, zi + 0.5)
+mic_ok &= bezel.inside((mx + 1.2, my, zf + 0.8))  # a small hole, not a window
 results.append(true(mic_ok, "dfr1154 mic hole with tube"))
-wall_ok = True
-for c in cam.IR:
-    x, y = cam.board_to_world(*c)
-    edge = abs(x - lx) - cam.IR_SIZE[0] / 2 - 0.5  # IR window's near side
-    xm = lx + math.copysign((hx + edge) / 2, x - lx)
-    wall_ok &= dfr.inside((xm, y, zf + 0.8))
-results.append(true(wall_ok, "dfr1154 wall between the lens opening and each IR window"))
+
+# the two parts: front plate screws line up with the shell's pilots, the lip sits just inside the shell walls
+join_ok = True
+for x, y in cam.BEZEL_SCREWS:
+    # rings around each screw axis: clear through the front plate's hole, the shell's pilot centred on it
+    for k in range(8):
+        cs, sn = math.cos(math.radians(45 * k)), math.sin(math.radians(45 * k))
+        join_ok &= open_column(bezel, x + 1.4 * cs, y + 1.4 * sn, zf - 1, zf + cam.FRONT_T + 0.2)
+        join_ok &= not shell.inside((x + 1.0 * cs, y + 1.0 * sn, zi + 3))
+        join_ok &= shell.inside((x + 1.6 * cs, y + 1.6 * sn, zi + 3))
+    join_ok &= open_column(shell, x, y, zi + 0.3, zi + cam.BEZEL_PILOT_DEPTH - 0.3)
+inner = cam.HEX_F / 2 - cam.WALL
+for phi in (0, 60, 120, 180, 240, 300):
+    cp, sp = math.cos(math.radians(phi)), math.sin(math.radians(phi))
+    zm = zi + cam.LIP_H / 2
+    join_ok &= bezel.inside(((inner - cam.FIT - 0.3) * cp, (inner - cam.FIT - 0.3) * sp, zm))  # lip
+    join_ok &= not bezel.inside(((inner - 0.05) * cp, (inner - 0.05) * sp, zm))  # fit gap
+    join_ok &= shell.inside(((inner + 0.3) * cp, (inner + 0.3) * sp, zm))  # wall
+results.append(true(join_ok, "dfr1154 front plate: screws into the shell's pilots, lip inside its walls"))
+
 ux, _ = cam.board_to_world(cam.USB_X, cam.PCB)
-uz = cam.z_pcb_back() + cam.USB_Z
-results.append(true(not dfr.inside((ux, 33.0, uz)), "dfr1154 USB-C slot through the wall at the plug"))
-results.append(cut("DfrCup", "dfr:usb", "dfr:vents", "dfr1154 vents"))
+uz = zb + cam.USB_Z
+wall_y = (cam.HEX_F / 2 - cam.WALL / 2 - 0.5 * ux) / math.cos(math.radians(30))  # 60° wall's middle at x = ux
+results.append(true(not shell.inside((ux, wall_y, uz)), "dfr1154 USB-C slot through the wall at the plug"))
 w, pitch = cam.VENT
-r_mid, z_mid = cam.HEX_F / 2 - cam.WALL / 2, (cam.z_pcb_back() + cam.RIM_Z) / 2
+r_mid, z_mid = cam.HEX_F / 2 - cam.WALL / 2, (zb + cam.RIM_Z) / 2
 vents_ok = True
 for phi in (0, 120, 240):
     cp, sp = math.cos(math.radians(phi)), math.sin(math.radians(phi))
@@ -325,12 +388,31 @@ for phi in (0, 120, 240):
             (-(w / 2 + 0.4), True),
         ):
             a = k * pitch + off
-            vents_ok &= dfr.inside((r_mid * cp - a * sp, r_mid * sp + a * cp, z_mid)) == want
-    vents_ok &= dfr.inside((r_mid * cp - 2 * pitch * sp, r_mid * sp + 2 * pitch * cp, z_mid))  # wall beyond them
+            vents_ok &= shell.inside((r_mid * cp - a * sp, r_mid * sp + a * cp, z_mid)) == want
+    vents_ok &= shell.inside((r_mid * cp - 2 * pitch * sp, r_mid * sp + 2 * pitch * cp, z_mid))  # wall beyond them
 results.append(true(vents_ok, "dfr1154 vents: three through each of the 0°, 120°, 240° walls"))
+
 standins = sorted(cam.dfr_standins())
-found = interferences(["DfrCup", *standins], lambda a, b: "DfrCup" in (a, b))
-results.append(true(not found, "dfr1154 cup clear of board, parts and USB plug", f"{found}"))
+parts = {"DfrCup", "DfrBezel"}
+found = interferences([*parts, *standins], lambda a, b: bool({a, b} & parts))
+results.append(
+    true(not found, "dfr1154 shell and front plate clear of each other, the board, parts and plug", f"{found}")
+)
+# insertion: the board (with its parts, not the plug, plugged in after) leaves through the shell's open end
+h = cam.PCB / 2
+top = zb + max(cam.BACK_LOW_H, *(p[4] for p in cam.BACK_PARTS.values()))
+sweep = {
+    "command": "solid.box",
+    "params": {
+        "length": cam.PCB,
+        "width": cam.PCB,
+        "height": top - (zf - 40),
+        "corner": [-h, -h, zf - 40],
+        "body_name": "Sweep",
+    },
+}
+found = interferences(["DfrCup", "Sweep"], lambda a, b: True, [sweep])
+results.append(true(not found, "dfr1154 board slides into the shell from its open end", f"{found}"))
 
 r = ref("prusacoreone_kamera_oben_v3.stl")
 if r:
