@@ -180,9 +180,28 @@ results = [
     cut("Leg", "e32:leg", "e32:magnet", "magnet pocket"),
     cut("Leg", "e32:magnet", "e32:bore", "screwdriver bore"),
     cut("Plate", "e32:plate_legs", "e32:plate_holes", "plate screw holes"),
+    cut("E32Cup", "e32:cup_shell", "e32:cup_corners", "cup corner rounds"),
+    cut("E32Cup", "e32:cup_corners", "e32:cup_hollow", "cup hollow"),
+    cut("CupPost0", "e32:posts", "e32:post_chamfers", "post chamfers"),
+    cut("E32Cup", "e32:cup_inside", "e32:post_pilots", "post pilot holes"),
+    cut("E32Cup", "e32:post_pilots", "e32:lens", "lens recess and hole"),
+    cut("E32Cup", "e32:lens", "e32:flash", "flash hole"),
+    cut("E32Cup", "e32:bosses", "e32:cup_pilots", "cup pilot holes"),
+    cut("E32Cup", "e32:cup_pilots", "e32:cable", "cable slot"),
+    cut("E32Cup", "e32:cable", "e32:vents", "vents"),
+    cut("Bracket", "e32:bracket", "e32:bracket_convex", "bracket outer bend rounds"),
+    true(dv("Bracket", "e32:bracket_convex", "e32:bracket_rounds") > 1, "bracket inner bend rounds"),
+    cut("Bracket", "e32:bracket_rounds", "e32:bracket_chamfers", "bracket end chamfers"),
+    cut("Bracket", "e32:bracket_chamfers", "e32:bracket_holes", "bracket holes"),
 ]
 r = ref("prusacoreone_kamera_oben_v3.stl")
 if r:
     results.append(matches("plate", ours("plate"), r))
+r = ref("prusacoreone_kamera_unten_v3.stl")
+if r:
+    results.append(matches("esp32cam cup", ours("esp32cam-cup"), r))
+r = ref("prusacoreone_kamera_bugel.stl")
+if r:
+    results.append(matches("bracket", ours("bracket"), r))
 
 sys.exit(0 if all(results) else 1)
