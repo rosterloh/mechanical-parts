@@ -103,7 +103,7 @@ CAM = (21.0, 14.8)  # lens centre
 CAM_BODY = (9.0, 10.0)
 CAM_H = 6.5  # lens front above the PCB's camera side
 APERTURE_R = 3.5
-FOV_X, FOV_Y = 64.0, 48.0  # half-angles: 160° taken as the diagonal of a 4:3 picture, long side across the board
+FOV_CLEAR = 80.0  # kept clear of the case all round, so 160° may be the picture's diagonal or its long side
 IR = [(5.5, 11.3), (5.5, 20.3), (36.5, 11.3), (36.5, 20.3)]
 IR_SIZE = (3.5, 3.0)
 MIC = (6.5, 29.8)
@@ -118,19 +118,21 @@ BACK_PARTS = {"terminal": (34.7, 42.0, 24.6, 31.2, BACK_H), "gravity": (9.0, 21.
 USB_X = 28.0  # USB-C centre along the bottom edge
 USB_Z = 1.6  # its centre above the PCB's back
 USB_PLUG = (12.5, 7.0, 15.0)  # plug overmould: width, height, length past the board edge
+USB_CLEAR = 1.0  # round the plug, in the slot and under the boss: overmoulds vary
 
-# dfr1154 cup: two parts. A straight hex shell, open at the camera end, carries the plate joint; a front plate
-# (bezel) carries the board on posts and every opening, slides into the shell's open end on a lip and screws into it
+# dfr1154 cup: two parts. A straight hex shell, open at the camera end, carries the plate joint; an open front frame
+# (bezel: rim, board posts, a bar with a collar round the lens) slides into the shell's open end on a lip and screws
+# into it
 WALL = 2.0
 FRONT_T = 1.6
-LENS_REVEAL = 0.3  # lens front behind the outer face: the module goes through a fitted hole, nothing crops the view
+LENS_REVEAL = 0.2  # lens front behind the outer face: the module goes through the collar, nothing crops the view
 CAM_CLEAR = 0.5  # module hole over the module, per side
 POST_D = 6.0
 POST_PILOT_D = 2.5  # M3 self-tapping through the board holes
 POST_PILOT_DEPTH = 6.0
 BOSS_H = 6.0  # plate-joint gussets hang this far from the rim: pilot depth + 2
 CLEAR = 0.5
-FIT = 0.2  # front plate's lip inside the shell walls
+FIT = 0.2  # front frame's lip inside the shell walls
 LIP_T, LIP_H = 1.2, 2.0
 BEZEL_SCREWS = [
     (32.0 * math.cos(math.radians(a)), 32.0 * math.sin(math.radians(a))) for a in (30, 150, 270)
@@ -138,14 +140,11 @@ BEZEL_SCREWS = [
 BEZEL_BOSS_D = 7.0
 BEZEL_PILOT_DEPTH = 6.0
 BEZEL_HOLE = 3.4
-TUBE_WALL = 0.8  # light sensor and mic tubes, front plate to just above the board, keep the IR inside off them
-TUBE_GAP = 0.3  # tube ends this far off the board
-WINDOW_CLEAR = 1.0  # window and tube bore over the part's size
-MIC_HOLE = 1.5
-IR_WALL = 2.0  # front plate left between the module hole and each IR window
-IR_FLARE = (FOV_X, FOV_Y)  # IR windows open toward the camera's view; clipped where posts, tubes and screws stand
-IR_REACH = (60.0, 40.0, 30.0)  # checked: the beam leaves at least this far outward, up and down (posts limit down)
-KEEP = 0.8  # material kept around posts, tubes and screw holes next to a window
+BEZEL_HEAD = (6.0, 2.4)  # pan head on the front face: diameter, height
+COLLAR = 2.0  # frame left round the module hole
+BAR_W = 6.0  # the bar carrying the collar, logo edge to USB edge: clear of the LEDs, mic and light sensor
+RIM_IN = HEX_F / 2 - WALL - FIT - LIP_T  # the front frame is open inside this (the lip's inner face)
+IR_REACH = (60.0, 40.0, 30.0)  # checked: each LED's light leaves at least this far outward, up and down
 VENT = (2.0, 4.0)  # slot width, spacing; three per free flat, from the board's back to 3 below the rim
 
 
@@ -159,7 +158,7 @@ def depth():
     over the USB plug."""
     stack = LENS_REVEAL + CAM_H + PCB_T
     tallest = max(h for *_, h in BACK_PARTS.values()) + 1.0
-    plug = USB_Z + USB_PLUG[1] / 2 + CLEAR + BOSS_H
+    plug = USB_Z + USB_PLUG[1] / 2 + USB_CLEAR + BOSS_H
     return stack + max(tallest, plug)
 
 
@@ -213,45 +212,6 @@ def dfr_standins():
 for _bx, _by in [CAM, MIC, ALS, *IR, *HOLES]:
     assert 0 <= _bx <= PCB and 0 <= _by <= PCB, (_bx, _by)
 assert LENS_REVEAL + CAM_H - POST_PILOT_DEPTH >= 0.6, "post pilots would break through the front face"
-
-
-def keepouts():
-    """Front-plate features an IR window must stay clear of, as world rectangles (x0, x1, y0, y1)."""
-    out = []
-    for bx, by in HOLES:
-        x, y = board_to_world(bx, by)
-        out.append((x - POST_D / 2, x + POST_D / 2, y - POST_D / 2, y + POST_D / 2))
-    for c, (w, h) in ((ALS, ALS_SIZE), (MIC, MIC_SIZE)):
-        x, y = board_to_world(*c)
-        hw, hh = w / 2 + WINDOW_CLEAR / 2 + TUBE_WALL, h / 2 + WINDOW_CLEAR / 2 + TUBE_WALL
-        out.append((x - hw, x + hw, y - hh, y + hh))
-    for x, y in BEZEL_SCREWS:
-        out.append((x - BEZEL_BOSS_D / 2, x + BEZEL_BOSS_D / 2, y - BEZEL_BOSS_D / 2, y + BEZEL_BOSS_D / 2))
-    return out
-
-
-def ir_window(side, z):
-    """One window per LED pair (side +1: +x, -1: -x) at height z: the LEDs' outline grown by the flare angles over
-    the distance up from their tops, then clipped by the module hole, the lip and the keepouts. World x0, x1, y0, y1."""
-    leds = [board_to_world(*c) for c in IR if (board_to_world(*c)[0] > 0) == (side > 0)]
-    w, h = IR_SIZE
-    xs = [abs(x) for x, _ in leds]
-    ys = [y for _, y in leds]
-    rise = (z_pcb_front() - FRONT_PART_H) - z
-    gx, gy = rise * math.tan(math.radians(IR_FLARE[0])), rise * math.tan(math.radians(IR_FLARE[1]))
-    near = max(min(xs) - w / 2 - gx, CAM_BODY[0] / 2 + CAM_CLEAR + IR_WALL)
-    far = min(max(xs) + w / 2 + gx, HEX_F / 2 - WALL - FIT - LIP_T - 1.0)
-    y0, y1 = min(ys) - h / 2 - gy, max(ys) + h / 2 + gy
-    for kx0, kx1, ky0, ky1 in keepouts():
-        lo, hi = (kx0, kx1) if side > 0 else (-kx1, -kx0)  # distance out from the lens on this side
-        if hi < near or lo > far:
-            continue  # not beside the window
-        if ky0 >= max(ys):
-            y1 = min(y1, ky0 - KEEP)
-        elif ky1 <= min(ys):
-            y0 = max(y0, ky1 + KEEP)
-    x0, x1 = (near, far) if side > 0 else (-far, -near)
-    return x0, x1, y0, y1
 
 
 def hexagon(flats, angle0=90.0):
@@ -491,7 +451,7 @@ def build(d):
     edges = [[x + dia / 2, y, RIM_Z] for x, y in JOINT]
     cmds.append({"command": "solid.chamfer", "params": {"body": dc, "distance": PILOT_LEAD, "edges": edges}})
     mark("dfr:pilots")
-    # front plate screw bosses: columns in the free corners up to the rim, so they print standing (shell rim down)
+    # front frame screw bosses: columns in the free corners up to the rim, so they print standing (shell rim down)
     bosses = []
     for i, (x, y) in enumerate(BEZEL_SCREWS):
         cyl(f"DfrBezelBoss{i}", BEZEL_BOSS_D, (x, y, zi), RIM_Z - zi)
@@ -503,8 +463,9 @@ def build(d):
     mark("dfr:bezel_pilots")
     ((px0, px1, _, _, pz0, pz1),) = dfr_standins()["DfrPlug"]
     # through the 60° wall only, from 1 mm inside its inner face at the slot's far side
-    y_in = (HEX_F / 2 - WALL - 0.5 * (px1 + CLEAR)) / math.cos(math.radians(30)) - 1
-    box("DfrUsb", px0 - CLEAR, px1 + CLEAR, y_in, corner + 5, pz0 - CLEAR, pz1 + CLEAR, operation="cut", targets=[dc])
+    c = USB_CLEAR
+    y_in = (HEX_F / 2 - WALL - 0.5 * (px1 + c)) / math.cos(math.radians(30)) - 1
+    box("DfrUsb", px0 - c, px1 + c, y_in, corner + 5, pz0 - c, pz1 + c, operation="cut", targets=[dc])
     mark("dfr:usb")
     w, pitch = VENT
     z0, z1 = z_pcb_back() + CLEAR, RIM_Z - 3
@@ -524,7 +485,7 @@ def build(d):
     mark("dfr:vents")
     export(dc, "dfr1154-cup")
 
-    # --- dfr1154 front plate: board on posts, module through a fitted hole, IR windows, sensor and mic tubes
+    # --- dfr1154 front frame: rim with the lip, board posts on stubs, a bar with the lens collar; the rest open
     bz, zf = "DfrBezel", z_front()
     plane = {"origin": [0, 0, zf], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
     prism(bz, hexagon(HEX_F), plane, FRONT_T)
@@ -534,6 +495,9 @@ def build(d):
     ]
     cmds.append({"command": "solid.fillet", "params": {"body": bz, "radius": CUP_CORNER_R, "edges": edges}})
     mark("dfr:bezel")
+    below = {"origin": [0, 0, zf - 1], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
+    prism("DfrOpening", hexagon(2 * RIM_IN), below, FRONT_T + 2, operation="cut", targets=[bz])
+    mark("dfr:opening")
     lip_out = HEX_F - 2 * WALL - 2 * FIT
     cmds.append(
         {
@@ -552,11 +516,28 @@ def build(d):
         cyl("DfrLipNotch", BEZEL_BOSS_D + 2 * FIT + 1, (x, y, zi), LIP_H + 1, operation="cut", targets=["DfrLip"])
     combine(bz, ["DfrLip"], "join")
     mark("dfr:lip")
+    frame = []
+    for i, (x, y) in enumerate(BEZEL_SCREWS):  # seats for the screw heads in the corners
+        cyl(f"DfrEar{i}", BEZEL_HEAD[0] + 3, (x, y, zf), FRONT_T)
+        frame.append(f"DfrEar{i}")
     for i, (bx, by) in enumerate(HOLES):
         x, y = board_to_world(bx, by)
-        cyl(f"DfrPost{i}", POST_D, (x, y, zi - 0.5), z_pcb_front() - zi + 0.5)
-    combine(bz, [f"DfrPost{i}" for i in range(len(HOLES))], "join")
-    mark("dfr:posts")
+        cyl(f"DfrPost{i}", POST_D, (x, y, zf), z_pcb_front() - zf)
+        # stub to the nearest flat that isn't the 0° or 180° one, ending inside the rim
+        nx, ny = math.copysign(0.5, x), math.copysign(math.sqrt(0.75), y)
+        reach = RIM_IN + 1.5 - (x * nx + y * ny)
+        tx, ty = -ny * POST_D / 2, nx * POST_D / 2
+        ex, ey = x + nx * reach, y + ny * reach
+        prism(
+            f"DfrStub{i}", [(x + tx, y + ty), (ex + tx, ey + ty), (ex - tx, ey - ty), (x - tx, y - ty)], plane, FRONT_T
+        )
+        frame += [f"DfrPost{i}", f"DfrStub{i}"]
+    lx, ly = board_to_world(*CAM)
+    hx, hy = CAM_BODY[0] / 2 + CAM_CLEAR, CAM_BODY[1] / 2 + CAM_CLEAR
+    box("DfrBar", lx - BAR_W / 2, lx + BAR_W / 2, -RIM_IN - 4.5, RIM_IN + 4.5, zf, zi)  # ends inside the rim's corners
+    box("DfrCollar", lx - hx - COLLAR, lx + hx + COLLAR, ly - hy - COLLAR, ly + hy + COLLAR, zf, zi)
+    combine(bz, [*frame, "DfrBar", "DfrCollar"], "join")
+    mark("dfr:frame")
     top = z_pcb_front()
     for bx, by in HOLES:
         x, y = board_to_world(bx, by)
@@ -569,52 +550,8 @@ def build(d):
             targets=[bz],
         )
     mark("dfr:post_pilots")
-    lx, ly = board_to_world(*CAM)
-    hx, hy = CAM_BODY[0] / 2 + CAM_CLEAR, CAM_BODY[1] / 2 + CAM_CLEAR
     box("DfrModuleHole", lx - hx, lx + hx, ly - hy, ly + hy, zf - 1, zi + 1, operation="cut", targets=[bz])
     mark("dfr:module_hole")
-    for side in (1, -1):
-        names = []
-        for name, z in ((f"DfrIrIn{side}", zi + 0.5), (f"DfrIrOut{side}", zf - 0.5)):
-            x0, x1, y0, y1 = ir_window(side, z)
-            cmds.append(
-                {
-                    "command": "sketch.create",
-                    "params": {"plane": {"origin": [0, 0, z], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}, "name": name},
-                }
-            )
-            cmds.append(
-                {
-                    "command": "sketch.line",
-                    "params": {"points": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], "closed": True},
-                }
-            )
-            cmds.append({"command": "sketch.finish", "params": {}})
-            names.append(name)
-        cmds.append(
-            {
-                "command": "solid.loft",
-                "params": {"sections": [{"sketch": n} for n in names], "operation": "cut", "targets": [bz]},
-            }
-        )
-    mark("dfr:ir")
-    tube_top = z_pcb_front() - TUBE_GAP
-    holes = [(ALS, ALS_SIZE, None), (MIC, MIC_SIZE, MIC_HOLE)]
-    for i, (c, (w, h), _) in enumerate(holes):
-        x, y = board_to_world(*c)
-        hw, hh = w / 2 + WINDOW_CLEAR / 2 + TUBE_WALL, h / 2 + WINDOW_CLEAR / 2 + TUBE_WALL
-        box(f"DfrTube{i}", x - hw, x + hw, y - hh, y + hh, zi - 0.5, tube_top)
-    combine(bz, [f"DfrTube{i}" for i in range(len(holes))], "join")
-    mark("dfr:tubes")
-    for c, (w, h), hole in holes:
-        x, y = board_to_world(*c)
-        hw, hh = w / 2 + WINDOW_CLEAR / 2, h / 2 + WINDOW_CLEAR / 2
-        if hole:  # mic: a small hole through the front, the tube's bore stops at the plate
-            box("DfrBore", x - hw, x + hw, y - hh, y + hh, zi, tube_top + 1, operation="cut", targets=[bz])
-            cyl("DfrMicHole", hole, (x, y, zf - 1), FRONT_T + 2, operation="cut", targets=[bz])
-        else:
-            box("DfrWindow", x - hw, x + hw, y - hh, y + hh, zf - 1, tube_top + 1, operation="cut", targets=[bz])
-    mark("dfr:windows")
     for x, y in BEZEL_SCREWS:
         cyl("DfrBezelHole", BEZEL_HOLE, (x, y, zf - 1), FRONT_T + LIP_H + 2, operation="cut", targets=[bz])
     mark("dfr:bezel_holes")
