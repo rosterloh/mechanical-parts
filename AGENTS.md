@@ -12,6 +12,8 @@ How parts are built is in README.md. These are the traps that cost time before.
 - The first part inserted into a design is grounded: `occurrence.move` refuses it without `move_grounded: true`.
 - `solid.move` `translate` is in world axes, also for bodies of a rotated occurrence (0.20 used the occurrence's
   local axes); the command docs don't say so, and nothing errors when a body goes the wrong way.
+- Since 0.40 (new kernel) `inspect.interference` can fail on a vendor STEP body against a printed part and lists the
+  pair as `unchecked`; a check must not count that as a clean fit (see `protective-stop-remote/check.py`).
 - `inspect.interference` skips mesh bodies and `mesh.convert` only handles constant-section meshes, so clearance to the
   vendor unit models is checked in Python against the exported STL (see `poe-rs485-3030-mount/check.py`).
 

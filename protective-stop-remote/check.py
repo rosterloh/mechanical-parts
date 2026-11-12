@@ -303,6 +303,9 @@ results.append(close(max(nearest, keep_out), nearest, 0, f"p4 sockets ≥ {keep_
 
 # open (unclosed) bodies in Waveshare's STEP the kernel can't check; each is an 0201/0402 part on the board's face
 OPEN_BODIES = ("USER_LIBRARY-RES_0603-0201_4", "3_1_A")
+# closed bodies solidcraft 0.40.1's boolean fails on against the case: checked as their bounding box instead,
+# which can only report more clashes, not fewer. Drop a name once the kernel takes it again
+BOXED_BODIES = ("BOARD-893", "SWITCHER-4_5X3_3XH3_4")
 
 
 def interferences(extra, bodies, keep):
@@ -319,9 +322,19 @@ def interferences(extra, bodies, keep):
     known = [u for u in unchecked if any((u["b"] or "").startswith(n) or u["a"].startswith(n) for n in OPEN_BODIES)]
     if known:
         print(f"     not checked (open bodies in the vendor STEP): {[(u['a'], u['b'].split(' ')[0]) for u in known]}")
-    if len(known) < len(unchecked):
-        sys.exit(f"interference not checked: {[u for u in unchecked if u not in known]}")
-    return [i for i in r["interferences"] if keep(i["a"], i["b"])]
+    # shortcut: boxes come from the unmoved design's bboxes, so only for queries without `extra`
+    boxed = [u for u in unchecked if u not in known and not extra and (u["b"] or "").split(" ")[0] in BOXED_BODIES]
+    if len(known) + len(boxed) < len(unchecked):
+        sys.exit(f"interference not checked: {[u for u in unchecked if u not in known and u not in boxed]}")
+    found = [i for i in r["interferences"] if keep(i["a"], i["b"])]
+    for u in boxed:
+        name = u["b"].split(" ")[0]
+        lo, hi = final[name]["min"], final[name]["max"]
+        size = dict(zip(("length", "width", "height"), (h - l for l, h in zip(lo, hi))))
+        box = {"command": "solid.box", "params": {**size, "corner": lo, "body_name": f"box:{name}"}}
+        print(f"     checked as its bounding box (kernel boolean failed): {(u['a'], name)}")
+        found += interferences([box], [u["a"], f"box:{name}"], lambda a, b: True)
+    return found
 
 
 def pairs(found):
@@ -391,10 +404,22 @@ found = interferences([plug], ["P4Base", "plug"], lambda a, b: True)
 results.append(true(not found, "p4: an RJ45 plug reaches the jack through the window", f"{pairs(found)}"))
 
 # unplugging pulls the jack outward: its face bears on the end wall around the window
+# (a slab for the jack's face, 0.5 inside its outline and stopping at the board, moved 0.3 outward: solidcraft
+# 0.40.1's boolean fails on the STEP's jack against the case)
+lo, hi = final["RJ45_HR911105A"]["min"], final["RJ45_HR911105A"]["max"]
 pull = [
-    {"command": "solid.move", "params": {"bodies": ["RJ45_HR911105A"], "translate": [-0.3, 0, 0]}}
-]  # world axes: outward, towards the end wall
-found = interferences(pull, ["P4Base", "RJ45_HR911105A"], lambda a, b: True)
+    {
+        "command": "solid.box",
+        "params": {
+            "length": 1.0,
+            "width": hi[1] - lo[1] - 1.0,
+            "height": min(hi[2], zb) - lo[2] - 1.0,
+            "corner": [lo[0] - 0.3, lo[1] + 0.5, lo[2] + 0.5],
+            "body_name": "jack_face",
+        },
+    }
+]
+found = interferences(pull, ["P4Base", "jack_face"], lambda a, b: True)
 results.append(true(bool(found), "p4: the RJ45 bears on the end wall when a plug is pulled", f"{pairs(found)}"))
 
 # plugging in pushes the board inward: its USB-C end must meet the stop lugs

@@ -95,6 +95,10 @@ STEP. Known issues:
 - Dupont socket height (16.5) and the 90° USB-C adapter's size are assumptions; the module's hole position on its PCB
   (2 mm from its edge) is read from photos.
 - Waveshare's STEP models one of the two pin rows.
+- solidcraft 0.40's kernel can't finish the boolean of the case against three bodies in Waveshare's STEP. `check.py`
+  tests the PCB and the side switch as their bounding boxes (which can only report more clashes), and the jack's
+  pull against the wall with a slab 0.5 mm inside its face. Go back to the STEP bodies (`BOXED_BODIES`, `jack_face`)
+  once a later kernel takes them.
 
 ## Files
 
