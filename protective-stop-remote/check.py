@@ -303,9 +303,9 @@ results.append(close(max(nearest, keep_out), nearest, 0, f"p4 sockets ≥ {keep_
 
 # open (unclosed) bodies in Waveshare's STEP the kernel can't check; each is an 0201/0402 part on the board's face
 OPEN_BODIES = ("USER_LIBRARY-RES_0603-0201_4", "3_1_A")
-# closed bodies solidcraft 0.40.1's boolean fails on against the case: checked as their bounding box instead,
+# closed bodies solidcraft 0.43.0's boolean fails on against the case: checked as their bounding box instead,
 # which can only report more clashes, not fewer. Drop a name once the kernel takes it again
-BOXED_BODIES = ("BOARD-893", "SWITCHER-4_5X3_3XH3_4")
+BOXED_BODIES = ("BOARD-893",)
 
 
 def interferences(extra, bodies, keep):
