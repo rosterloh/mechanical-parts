@@ -36,6 +36,11 @@ No supports. PETG or ASA, not PLA: the chamber gets warm enough to soften it. Pl
 face down. The dfr1154 shell **rim down** (joint face on the bed: its bosses then stand on the bed); the front frame
 **face down**. Those two STLs are already in that position on z=0; the esp32cam STLs are in the original's frame.
 
+Settings (PrusaSlicer, the PETG 0.2 mm profile): 0.2 mm layers, 3 perimeters, 15 % infill, no brim. Three perimeters
+because the screws thread into printed pilots: with two, the shell's bosses have infill behind 0.9 mm of wall. Almost
+nothing in either dfr1154 part is infill, so its pattern and density hardly matter. The vent tops and the top of the
+USB slot (17 mm along the wall) bridge. The front frame's bed face is the visible one.
+
 ## Assembly (dfr1154)
 
 1. Lay the board on the front frame camera side down, the module through the collar, the logo edge toward the
