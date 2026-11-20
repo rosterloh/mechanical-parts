@@ -63,36 +63,36 @@ face down. The dfr1154 shell **rim down** (joint face on the bed: its bosses the
   lens, posts and USB positions have to be right.
 - The bar runs along the board's middle because the LEDs sit 15.5 mm either side of it; arms from the lens to the
   posts would cross the LEDs' light. `check.py` holds each LED's light to at least 60° outward, 40° up and 30° down
-  (the posts are what limit it) and keeps the mic and light sensor clear straight ahead.
-- The lens sits 0.2 mm behind the face, so nothing crops the 160° view: `check.py` finds no frame and no screw
+  (the rim limits outward at 61°, the posts the rest) and keeps the mic and light sensor clear straight ahead.
+- The lens stands 0.8 mm proud of the face. The measured module is 9.6 mm tall, and with the lens behind the face
+  the board sat so deep that the rim cut the LEDs' light to 57°. Nothing crops the 160° view: `check.py` finds no frame and no screw
   head within 80° of the lens axis at any azimuth, so 160° may be the picture's diagonal or its long side. The
-  nearest screw head (pan head, Ø6 × 2.4) is 82° off axis: use low heads.
+  nearest screw head (pan head, Ø6 × 2.4) is 85° off axis.
 - The plate-joint bosses are 6 mm gussets hanging from the rim (the original's are 8). The +60° one sits over the
-  USB plug, and that sets the depth (20.4 mm, front face to rim). The slot and the boss leave 1 mm round a 12.5 × 7 mm plug, because overmoulds vary.
+  USB plug, and that sets the depth (22.4 mm, front face to rim). The slot and the boss leave 1 mm round a 12.5 × 7 mm plug, because overmoulds vary.
 - Vents: three slots in each wall without a boss or the USB slot, behind the board.
 - The original's vents were placed by hand per wall, so the generator keeps a table per wall.
 
 ## Status
 
-Not printed. **The DFR1154 dimensions are estimates** from DFRobot's function diagram and dimension drawing (PCB
-v1.0). Before printing, measure the board and update the constants at the top of the generator:
+Not printed. Print the front frame first and try the board on it before printing the shell.
 
-- `CAM_H` (lens front above the PCB) and `CAM_BODY` (the module's footprint): these set the posts and the module
-  hole. The depth then follows `CAM_H`, `USB_Z` and the plug height, or `BACK_H` (screw terminal) once that is the
-  taller of the two.
-- `USB_X`, `USB_Z` and the plug size, plus the positions of `CAM`, `IR`, `MIC`, `ALS` and `BACK_PARTS`.
-- The PCB revision: a v1.1 board may have a different layout.
+Measured on a board (2026-11-20): PCB thickness, `CAM_H`, the module's size (Ø10 barrel on an 8 mm square base),
+`BACK_H`, `USB_Z`, the mounting holes (Ø3.0) and the positions of `CAM`, `IR`, `MIC` and `ALS`. Still from
+DFRobot's dimension drawing (PCB v1.0.0) only: `USB_X` and `BACK_PARTS`' positions. The plug size is an allowance,
+not a measurement. The board's PCB revision wasn't noted.
 
 Known issues:
 
 - Unconfirmed: whether 160° is the diagonal (the case stays out of an 80° cone either way) and the LEDs' own beam
   angle (not published). Nothing of the case limits either now, so neither needs a reprint.
-- The board's camera side is open to the chamber. The rim stands 6.5 mm proud of it and the camera looks down, but
+- The board's camera side is open to the chamber. The rim stands 8.8 mm proud of it and the camera looks down, but
   a filament string could land on it.
+- The lens is the first thing to touch if the camera is laid face down.
+- The board holes are Ø3.0, so an M3 self-tapping screw is snug in them.
 - The bar passes about 2 mm from the light sensor and the posts could hit small parts on the board's camera side
   that DFRobot's diagram doesn't show.
-- The collar is sized from an estimated 9 × 10 mm module with 0.5 mm all round, so it guards the lens without
-  holding it. Once the module is measured it can be made a fit.
+- The collar is a square hole 0.5 mm clear of the Ø10 barrel, so it guards the lens without holding it.
 - The esp32cam rebuild is matched to the STLs (≤0.1 % surface misses at 0.5 mm, volume within 0.5 %). The
   Printables licence hasn't been checked (the page refused automated access).
 

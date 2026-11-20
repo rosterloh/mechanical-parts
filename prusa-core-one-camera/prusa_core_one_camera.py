@@ -97,11 +97,11 @@ BRACKET_H = 10.0
 # the camera side, logo edge at the top. Estimates from DFRobot's function diagram (10 px/mm) and dimension drawing,
 # PCB v1.0, not checked against a board: measure before printing (README).
 PCB = 42.0
-PCB_T = 1.6
+PCB_T = 1.52  # measured
 HOLES = [(3.5, 3.5), (38.5, 3.5), (3.5, 38.5), (38.5, 38.5)]
 CAM = (21.0, 14.8)  # lens centre
-CAM_BODY = (9.0, 10.0)
-CAM_H = 6.5  # lens front above the PCB's camera side
+CAM_BODY = (10.0, 10.0)  # measured: Ø10 barrel on an 8 mm square base
+CAM_H = 9.59  # lens front above the PCB's camera side, measured (11.11 from the PCB's back)
 APERTURE_R = 3.5
 FOV_CLEAR = 80.0  # kept clear of the case all round, so 160° may be the picture's diagonal or its long side
 IR = [(5.5, 11.3), (5.5, 20.3), (36.5, 11.3), (36.5, 20.3)]
@@ -113,7 +113,7 @@ ALS_SIZE = (2.0, 2.0)
 FRONT_PART_H = 1.0  # LEDs, mic and light sensor
 # back side, in the same camera-side coordinates: (x0, x1, y0, y1, height)
 BACK_LOW_H = 2.0  # everything not listed
-BACK_H = 8.5  # screw terminal, the tallest part
+BACK_H = 8.63  # screw terminal, the tallest part, measured (10.15 with the PCB)
 BACK_PARTS = {"terminal": (34.7, 42.0, 24.6, 31.2, BACK_H), "gravity": (9.0, 21.1, 34.0, 42.0, 6.0)}
 USB_X = 28.0  # USB-C centre along the bottom edge
 USB_Z = 1.6  # its centre above the PCB's back
@@ -125,7 +125,8 @@ USB_CLEAR = 1.0  # round the plug, in the slot and under the boss: overmoulds va
 # into it
 WALL = 2.0
 FRONT_T = 1.6
-LENS_REVEAL = 0.2  # lens front behind the outer face: the module goes through the collar, nothing crops the view
+LENS_REVEAL = -0.8  # lens front behind the outer face; negative: it stands proud, which keeps the board near enough
+# the face for the IR LEDs to clear the rim (IR_REACH)
 CAM_CLEAR = 0.5  # module hole over the module, per side
 POST_D = 6.0
 POST_PILOT_D = 2.5  # M3 self-tapping through the board holes
