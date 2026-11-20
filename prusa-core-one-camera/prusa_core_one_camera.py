@@ -276,6 +276,24 @@ def build(d):
             path = os.path.join(d, f"{NAME}-{part}.{fmt}")
             cmds.append({"command": "file.export", "params": {"path": path, "bodies": [body]}})
 
+    def export_print(body, part, lift, flip=False):
+        """STEP as assembled; STL in print position on z=0, from a throwaway copy turned over about X if `flip`."""
+        cmds.append(
+            {"command": "file.export", "params": {"path": os.path.join(d, f"{NAME}-{part}.step"), "bodies": [body]}}
+        )
+        move = {"axis": [1, 0, 0], "angle": "180 deg"} if flip else {"translate": [0, 0, 0]}
+        cmds.append({"command": "solid.move", "params": {"bodies": [body], **move, "copy": True}})
+        cmds.append({"command": "body.rename", "params": {"body": f"{body} (2)", "name": f"{body}Print"}})
+        cmds.append({"command": "solid.move", "params": {"bodies": [f"{body}Print"], "translate": [0, 0, lift]}})
+        mark(f"print:{part}")
+        cmds.append(
+            {
+                "command": "file.export",
+                "params": {"path": os.path.join(d, f"{NAME}-{part}.stl"), "bodies": [f"{body}Print"]},
+            }
+        )
+        cmds.append({"command": "solid.remove", "params": {"bodies": [f"{body}Print"]}})
+
     # --- plate
     xy = {"origin": [0, 0, RIM_Z], "x_dir": [1, 0, 0], "y_dir": [0, 1, 0]}
     prism("Plate", hexagon(HEX_F), xy, PLATE_T)
@@ -484,7 +502,7 @@ def build(d):
                 )
             combine(dc, ["DfrVent"], "cut")
     mark("dfr:vents")
-    export(dc, "dfr1154-cup")
+    export_print(dc, "dfr1154-cup", RIM_Z, flip=True)  # rim down
 
     # --- dfr1154 front frame: rim with the lip, board posts on stubs, a bar with the lens collar; the rest open
     bz, zf = "DfrBezel", z_front()
@@ -556,7 +574,7 @@ def build(d):
     for x, y in BEZEL_SCREWS:
         cyl("DfrBezelHole", BEZEL_HOLE, (x, y, zf - 1), FRONT_T + LIP_H + 2, operation="cut", targets=[bz])
     mark("dfr:bezel_holes")
-    export(bz, "dfr1154-front")
+    export_print(bz, "dfr1154-front", -zf)  # face down
     for name, boxes in dfr_standins().items():
         for i, b in enumerate(boxes):
             box(f"{name}{i}" if i else name, *b)
@@ -569,6 +587,7 @@ def build(d):
         ([bz], "#3a3a3a"),
         (["Plate"], "#e07b39"),
         (list(dfr_standins()), "#b8bcc2"),
+        (["DfrPcb"], "#2e7d32"),
     ):
         cmds.append({"command": "appearance.assign", "params": {"bodies": bodies, "color": color}})
     cmds.append({"command": "solid.move", "params": {"bodies": [dc, bz, *dfr_standins()], "translate": [90, 0, 0]}})

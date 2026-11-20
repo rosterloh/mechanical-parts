@@ -28,13 +28,13 @@ sits in the corner on three magnets, and a cup holding the camera screws under i
 | 3 | - | M3 × 6 self-tapping pan head screws, front frame to shell |
 | 1 | AI-Thinker ESP32-CAM | DFRobot DFR1154 + straight USB-C cable |
 
-STEP files sit beside each STL.
+STEP files sit beside each STL, in assembly position.
 
 ## Printing
 
 No supports. PETG or ASA, not PLA: the chamber gets warm enough to soften it. Plate legs up. The esp32cam cup front
 face down. The dfr1154 shell **rim down** (joint face on the bed: its bosses then stand on the bed); the front frame
-**face down**.
+**face down**. Those two STLs are already in that position on z=0; the esp32cam STLs are in the original's frame.
 
 ## Assembly (dfr1154)
 

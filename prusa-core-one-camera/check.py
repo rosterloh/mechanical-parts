@@ -252,9 +252,17 @@ results += [
     cut("DfrBezel", "dfr:post_pilots", "dfr:module_hole", "dfr1154 camera module hole"),
     cut("DfrBezel", "dfr:module_hole", "dfr:bezel_holes", "dfr1154 front frame screw holes"),
 ]
-shell, bezel = Solid(ours("dfr1154-cup")), Solid(ours("dfr1154-front"))
-results.append(joint_matches(shell, Solid(ours("esp32cam-cup"))))
 zf, zi, zl, zp, zb = cam.z_front(), cam.z_inner(), cam.z_lens(), cam.z_pcb_front(), cam.z_pcb_back()
+# the dfr1154 STLs are in print position (shell rim down, front frame face down) on z=0
+for part, body, height in (("dfr1154-cup", "DfrCup", cam.RIM_Z - zi), ("dfr1154-front", "DfrBezel", zp - zf)):
+    b = v[f"print:{part}"][f"{body}Print"]["bbox"]
+    results.append(close(b["min"][2], 0, 1e-6, f"{part} STL on the bed"))
+    results.append(close(b["max"][2], height, 1e-6, f"{part} STL print height"))
+    results.append(true(f"{body}Print" not in v["render"], f"{part} print copy removed after export"))
+# back to the assembly frame, so the checks below run on the files that get printed
+shell = Solid([[(x, -y, cam.RIM_Z - z) for x, y, z in t] for t in ours("dfr1154-cup")])
+bezel = Solid([[(x, y, z + zf) for x, y, z in t] for t in ours("dfr1154-front")])
+results.append(joint_matches(shell, Solid(ours("esp32cam-cup"))))
 
 
 def open_column(solid, x, y, z0, z1, step=0.2):
