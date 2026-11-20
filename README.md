@@ -19,6 +19,7 @@ Tools are pinned in `mise.toml` (solidcraft-cli, Python, ruff). In the repo:
 mise install                          # once per checkout (and `mise trust` the first time)
 mise run check                        # generate, build and render every part, then run each part's check.py
 mise run check poe-rs485-3030-mount   # just one part; `mise run build` skips the checks
+mise run app                          # macOS: bring /Applications/SolidCraft.app to the pinned version (also runs after `mise install`)
 mise run fmt                          # format Python; `mise run lint` checks lint + formatting
 ```
 

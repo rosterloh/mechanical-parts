@@ -24,6 +24,30 @@ run = "python tools/parts.py build"
 description = "Build parts, then run each part's check.py; run after any change"
 run = "python tools/parts.py check"
 
+[tasks.app]
+description = "macOS: install the SolidCraft app of the pinned CLI's version into /Applications (no-op when it matches)"
+run = '''
+set -e
+[ "$(uname)" = Darwin ] || exit 0
+v=$(solidcraft-cli --version | awk '{print $2}')
+app=/Applications/SolidCraft.app
+if [ "$(defaults read "$app/Contents/Info" CFBundleShortVersionString 2>/dev/null)" != "$v" ]; then
+  if pgrep -qf "$app/Contents/MacOS"; then echo "quit SolidCraft, then: mise run app"; exit 1; fi
+  tmp=$(mktemp -d); trap 'hdiutil detach -quiet "$tmp/mnt" 2>/dev/null; rm -rf "$tmp"' EXIT
+  curl -fsSL -o "$tmp/sc.dmg" "https://github.com/tangency-labs/solidcraft/releases/download/v$v/solidcraft-$v-macos-universal.dmg"
+  hdiutil attach -quiet -nobrowse -mountpoint "$tmp/mnt" "$tmp/sc.dmg"
+  spctl -a -t exec "$tmp/mnt/SolidCraft.app"  # Developer ID and notarisation, before the old app goes
+  # not the bundle itself: macOS lets the user empty it but not remove it from /Applications
+  rm -rf "$app/Contents"
+  ditto "$tmp/mnt/SolidCraft.app" "$app"
+fi
+echo "SolidCraft.app $v"
+'''
+
+# A pin bump installs a new CLI; this brings the app along.
+[hooks]
+postinstall = "mise run app"
+
 [tasks.fmt]
 description = "Format Python"
 run = "ruff format ."

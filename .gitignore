@@ -15,3 +15,6 @@ __pycache__/
 .ledger/
 .superpowers/
 docs/superpowers/
+
+# SolidCraft app: lock beside an open design
+.~*.lock
