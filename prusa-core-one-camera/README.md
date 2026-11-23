@@ -80,10 +80,12 @@ USB slot (17 mm along the wall) bridge. The front frame's bed face is the visibl
 
 ## Status
 
-Not printed. Print the front frame first and try the board on it before printing the shell.
+Front frame printed once (2026-11-23): the lens sat about 2 mm toward the logo edge of the module hole, so `CAM` y
+went from 14.8 to 12.8. That frame is scrap; the corrected one and the shell are not printed.
 
 Measured on a board (2026-11-20): PCB thickness, `CAM_H`, the module's size (Ø10 barrel on an 8 mm square base),
-`BACK_H`, `USB_Z`, the mounting holes (Ø3.0) and the positions of `CAM`, `IR`, `MIC` and `ALS`. Still from
+`BACK_H`, `USB_Z`, the mounting holes (Ø3.0) and the positions of `CAM` (y since corrected from a print), `IR`,
+`MIC` and `ALS`. Still from
 DFRobot's dimension drawing (PCB v1.0.0) only: `USB_X` and `BACK_PARTS`' positions. The plug size is an allowance,
 not a measurement. The board's PCB revision wasn't noted.
 
